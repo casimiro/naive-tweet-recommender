@@ -1,0 +1,4 @@
+[Project]
+Name=gaoModel
+Manager=KDevCMakeManager
+VersionControl=kdevgit
