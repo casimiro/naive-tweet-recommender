@@ -4,7 +4,8 @@
 
 #include <QtSql/QtSql>
 
-#include "profiles.h"
+#include "userprofile.h"
+#include "newsprofile.h"
 
 using namespace casimiro;
 

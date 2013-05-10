@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <ctime>
-#include "../profiles.h"
+#include "../userprofile.h"
+#include "../newsprofile.h"
 #include <QtSql/QtSql>
 
 namespace casimiro {

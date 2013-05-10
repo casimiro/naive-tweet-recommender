@@ -2,7 +2,7 @@ find_library(LIBPTHREAD NAMES pthread)
 find_library(LIBGTEST NAMES gtest)
 find_library(LIBGTEST_MAIN NAMES gtest_main)
 
-add_executable(tests userprofiletests.cpp ../profiles.cpp)
+add_executable(tests userprofiletests.cpp ../userprofile.cpp ../newsprofile.cpp)
 
 enable_testing()
 

@@ -7,7 +7,7 @@ set(QT_USE_QTSQL TRUE)
 include(${QT_USE_FILE})
 
 add_definitions(-std=c++11 -std=gnu++11 -pthread -W -Wall -Wno-unused-function -Ofast)
-add_executable(gaomodel profiles.cpp main.cpp)
+add_executable(gaomodel newsprofile.cpp userprofile.cpp main.cpp)
 target_link_libraries(gaomodel ${QT_LIBRARIES})
 
 add_subdirectory(test)
