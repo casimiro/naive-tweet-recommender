@@ -6,6 +6,7 @@
 
 #include "userprofile.h"
 #include "newsprofile.h"
+#include "sharednews.h"
 
 using namespace casimiro;
 
@@ -24,36 +25,20 @@ int main(int /*argc*/, char** /*argv*/) {
     }
     
     std::tm start;
+    strptime("2000-12-20 00:00:00", "%Y-%m-%d %H:%H:%S", &start);
     std::tm end;
-    
-    start.tm_year = 2000 - 1900;
-    start.tm_mon = 11;
-    start.tm_mday = 20;
-    start.tm_hour = 0;
-    start.tm_min = 0;
-    
-    end.tm_year = 2010 - 1900;
-    end.tm_mon = 11;
-    end.tm_mday = 19;
-    end.tm_hour = 0;
-    end.tm_min = 0;
-    
-    std::tm startEvaluation;
-    std::tm endEvaluation;
-    
-    startEvaluation.tm_year = 2010 - 1900;
-    startEvaluation.tm_mon = 11;
-    startEvaluation.tm_mday = 20;
-    startEvaluation.tm_hour = 0;
-    startEvaluation.tm_min = 0;
-    
-    endEvaluation.tm_year = 2010 - 1900;
-    endEvaluation.tm_mon = 11;
-    endEvaluation.tm_mday = 26;
-    endEvaluation.tm_hour = 23;
-    endEvaluation.tm_min = 59;
+    strptime("2010-12-19 00:00:00", "%Y-%m-%d %H:%H:%S", &start);
 
-    NewsProfileListPtr newsProfiles = NewsProfile::getNewsProfilesBetween(startEvaluation, endEvaluation);
+    std::tm startEvaluation;
+    strptime("2010-12-20 00:00:00", "%Y-%m-%d %H:%H:%S", &start);
+
+    std::tm startNewsEvaluation;
+    strptime("2010-12-13 00:00:00", "%Y-%m-%d %H:%H:%S", &start);
+
+    std::tm endEvaluation;
+    strptime("2010-12-26 23:59:59", "%Y-%m-%d %H:%H:%S", &start);
+    
+    NewsProfileListPtr newsProfiles = NewsProfile::getNewsProfilesBetween(startNewsEvaluation, endEvaluation);
     
     std::ifstream file("users");
     
@@ -63,9 +48,20 @@ int main(int /*argc*/, char** /*argv*/) {
     {
         long userId = atol(line.c_str());
         UserProfilePtr uProfile = UserProfile::getUserProfile(userId, start, end);
-        IntegerListPtr recommendedNews = uProfile->getSortedRecommendations(newsProfiles);
-        IntegerListPtr newsShared = uProfile->getSharedNews(startEvaluation, endEvaluation);
+        SharedNewsVectorPtr newsShared = uProfile->getSharedNews(startEvaluation, endEvaluation);
         
+        auto newsIt = newsShared->begin();
+        auto newsEnd = newsShared->end();
+
+        if(newsIt == newsEnd)
+            continue;
+
+        for (; newsIt != newsEnd; newsIt++)
+        {
+            auto recs = uProfile->getSortedRecommendations(newsProfiles, newsIt->getSharedAt());
+
+        }
+
         meanPosition = 0;
         
     }

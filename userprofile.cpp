@@ -89,14 +89,18 @@ double UserProfile::cosineSimilarity(ConceptMapPtr _profile)
     return dot / (aNorm * bNorm);
 }
 
-IntegerListPtr UserProfile::getSortedRecommendations(NewsProfileListPtr _newsProfiles)
+IntegerListPtr UserProfile::getSortedRecommendations(NewsProfileListPtr _newsProfiles, std::tm _until)
 {
+    std::time_t untilTime = mktime(&_until);
     std::map<double, std::vector<int>> aux;
     auto end = aux.end();
     
     double sim;
     for (auto it = _newsProfiles->begin(); it != _newsProfiles->end(); it++)
     {
+        if(it->get()->getPublishTime() > untilTime)
+            continue;
+
         sim = cosineSimilarity(it->get()->getProfile());
         if(aux.find(sim) == end)
             aux[sim] = std::vector<int>();
@@ -114,9 +118,9 @@ IntegerListPtr UserProfile::getSortedRecommendations(NewsProfileListPtr _newsPro
     return sortedNews;
 }
 
-IntegerListPtr UserProfile::getSharedNews(std::tm _start, std::tm _end)
+SharedNewsVectorPtr UserProfile::getSharedNews(std::tm _start, std::tm _end)
 {
-    IntegerListPtr news = std::make_shared<IntegerList>();
+    SharedNewsVectorPtr news = std::make_shared<SharedNewsVector>();
     char s[19];
     char e[19];
     s[18] = '\0';
@@ -125,14 +129,20 @@ IntegerListPtr UserProfile::getSharedNews(std::tm _start, std::tm _end)
     strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
     
     QSqlQuery query;
-    query.prepare("SELECT newsId FROM nas WHERE userId = :uid AND creationTime >= :start AND creationTime <= :end AND (strategy=31211 OR strategy=31111 OR strategy=13261)");
+    query.prepare("SELECT newsId, creationTime FROM nas WHERE userId = :uid AND creationTime >= :start AND creationTime <= :end AND (strategy=31211 OR strategy=31111 OR strategy=13261)");
     query.bindValue(":uid", (qlonglong) m_userId);
     query.bindValue(":start", s);
     query.bindValue(":end", e);
     query.exec();
     
     while(query.next())
-        news->push_back(query.value(0).toInt());
+    {
+        std::string dateString = query.value(1).toString().toStdString();
+        std::tm date;
+        strptime(dateString.c_str(), "%Y-%m-%d %H:%M:%S", &date);
+
+        news->push_back(SharedNews(query.value(0).toInt(), date));
+    }
     
     return news;
 }

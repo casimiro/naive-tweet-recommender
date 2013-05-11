@@ -9,6 +9,9 @@ NewsProfile::NewsProfile(int _newsId, std::tm _publishDate, ConceptMapPtr _profi
     m_publishDate(_publishDate),
     m_profile(_profile)
 {
+    m_publishTime = mktime(&m_publishDate);
+    if(m_publishTime < 0)
+        throw std::exception();
 }
 
 NewsProfile::~NewsProfile()

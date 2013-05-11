@@ -21,12 +21,14 @@ public:
 
 private:
     int m_newsId;
-    ConceptMapPtr m_profile;
     std::tm m_publishDate;
+    ConceptMapPtr m_profile;
+    std::time_t m_publishTime;
 
 public:
     virtual ConceptMapPtr getProfile() { return m_profile; }
     virtual int getNewsId() { return m_newsId; }
+    virtual std::time_t getPublishTime() { return m_publishTime; }
     static NewsProfilePtr getNewsProfile(int _newsId);
     static NewsProfileListPtr getNewsProfilesBetween(std::tm _start, std::tm _end);
     

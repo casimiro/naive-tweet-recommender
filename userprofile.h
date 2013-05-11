@@ -1,10 +1,11 @@
 #ifndef USERPROFILE_H
 #define USERPROFILE_H
-
+#include <ctime>
 #include "profile.h"
 #include "newsprofile.h"
 #include "utils.h"
-#include <ctime>
+#include "sharednews.h"
+
 
 namespace casimiro {
 
@@ -25,9 +26,9 @@ private:
     
     virtual double cosineSimilarity(ConceptMapPtr _profile);
 public:
-    virtual IntegerListPtr getSortedRecommendations(NewsProfileListPtr _newsProfiles);
+    virtual IntegerListPtr getSortedRecommendations(NewsProfileListPtr _newsProfiles, std::tm _until);
     virtual StringListPtr getSharedNewsLinks();
-    virtual IntegerListPtr getSharedNews(std::tm _start, std::tm _end);
+    virtual SharedNewsVectorPtr getSharedNews(std::tm _start, std::tm _end);
     virtual ConceptMapPtr getProfile() { return m_profile; }
     virtual long getUserId() { return m_userId; }
     virtual std::tm getStart() { return m_start; }
