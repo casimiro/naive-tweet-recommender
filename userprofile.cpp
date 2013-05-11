@@ -99,7 +99,7 @@ IntegerListPtr UserProfile::getSortedRecommendations(NewsProfileListPtr _newsPro
     for (auto it = _newsProfiles->begin(); it != _newsProfiles->end(); it++)
     {
         if(it->get()->getPublishTime() > untilTime)
-            continue;
+            break;
 
         sim = cosineSimilarity(it->get()->getProfile());
         if(aux.find(sim) == end)

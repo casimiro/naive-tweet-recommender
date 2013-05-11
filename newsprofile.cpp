@@ -9,7 +9,7 @@ NewsProfile::NewsProfile(int _newsId, std::tm _publishDate, ConceptMapPtr _profi
     m_publishDate(_publishDate),
     m_profile(_profile)
 {
-    m_publishTime = mktime(&m_publishDate);
+    m_publishTime = mktime(&_publishDate);
     if(m_publishTime < 0)
         throw std::exception();
 }
@@ -30,7 +30,8 @@ NewsProfilePtr NewsProfile::getNewsProfile(int _newsId)
     query.exec();
 
     query.next();
-    std::string dateString = query.value(0).toString().toStdString();
+    QDateTime dt = query.value(0).toDateTime();
+    std::string dateString = dt.toString("yyyy-MM-dd hh:mm:ss").toStdString();
     std::tm date;
     strptime(dateString.c_str(), "%Y-%m-%d %H:%M:%S", &date);
 
@@ -66,7 +67,7 @@ NewsProfileListPtr NewsProfile::getNewsProfilesBetween(std::tm _start, std::tm _
     strftime(s, 19, "%Y-%m-%d %H:%M", &_start);
     strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
     
-    query.prepare("SELECT id, publish_date FROM news as n WHERE n.publish_date >= :start AND n.publish_date <= :end");
+    query.prepare("SELECT id, publish_date FROM news as n WHERE n.publish_date >= :start AND n.publish_date <= :end ORDER BY publish_date ASC");
     query.bindValue(":start", s);
     query.bindValue(":end", e);
     
