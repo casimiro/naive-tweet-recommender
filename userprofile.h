@@ -34,7 +34,7 @@ public:
     virtual std::tm getStart() { return m_start; }
     virtual std::tm getEnd() { return m_end; }
     
-    static UserProfilePtr getUserProfile(long _userId, std::tm _start, std::tm _end);
+    static UserProfilePtr getHashtagProfile(long _userId, std::tm _start, std::tm _end);
 };
 
 }

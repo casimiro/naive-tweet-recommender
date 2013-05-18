@@ -17,10 +17,9 @@ UserProfile::~UserProfile()
 {
 }
 
-UserProfilePtr UserProfile::getUserProfile(long _userId, std::tm _start, std::tm _end)
+UserProfilePtr UserProfile::getHashtagProfile(long _userId, std::tm _start, std::tm _end)
 {
-    ConceptMapPtr mPtr = std::make_shared<ConceptMap>();
-    UserProfilePtr up = std::make_shared<UserProfile>(_userId, mPtr, _start, _end);
+    ConceptMap conceptMap;
     
     char s[19];
     char e[19];
@@ -30,24 +29,34 @@ UserProfilePtr UserProfile::getUserProfile(long _userId, std::tm _start, std::tm
     strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
     
     QSqlQuery query;
-    query.prepare("SELECT uri,count(uri) FROM tweets_sample as t, semanticsTweetsEntity as s WHERE t.userId = :uid AND t.creationTime >= :start AND t.creationTime <= :end AND t.id = s.tweetId GROUP BY uri");
+    query.prepare("SELECT content FROM tweet WHERE user_id = :uid AND creation_time >= :start AND creation_time <= :end AND content LIKE '%#%'");
     query.bindValue(":uid", (qlonglong) _userId);
     query.bindValue(":start", s);
     query.bindValue(":end", e);
     query.exec();
     
     float sum = 0;
+    QRegExp rx("#\\w+");
     while(query.next())
     {
-        std::string element = query.value(0).toString().toStdString();
-        float elementCount = query.value(1).toFloat();
-        mPtr->insert(std::make_pair(element, elementCount));
-        sum += elementCount;
+        QString content = query.value(0).toString();
+        int pos = 0;
+        while ((pos = rx.indexIn(content, pos)) != -1)
+        {
+            std::string match = rx.cap(0).toLower().toStdString();
+            if(conceptMap.find(match) == conceptMap.end())
+                conceptMap.insert(std::make_pair(match, 0));
+
+            conceptMap[match] += 1;
+            sum++;
+            pos += rx.matchedLength();
+        }
     }
-    
-    for(auto it = mPtr->begin(); it != mPtr->end(); it++)
+
+    for(auto it = conceptMap.begin(); it != conceptMap.end(); it++)
         it->second = it->second / sum;
     
+    UserProfilePtr up = std::make_shared<UserProfile>(_userId, std::make_shared<ConceptMap>(conceptMap), _start, _end);
     return up;
 }
 
