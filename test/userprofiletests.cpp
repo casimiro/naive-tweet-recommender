@@ -27,7 +27,7 @@ protected:
             "CONSTRAINT tweet_pk PRIMARY KEY (id ))"
         );
 
-        // Populating tweets_sample
+        // Populating tweet table
         query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (1, 1, '2012-01-01 09:05:00', null, '#USP bla bla')");
         query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (2, 1, '2012-01-01 09:10:00', null, 'bla #google bla')");
         query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (3, 1, '2012-01-01 09:15:00', null, 'bla bla #linux')");
@@ -35,6 +35,18 @@ protected:
         query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (4, 2, '2012-01-01 09:00:00', null, '#UNICAMP bla bla bla')");
         query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (5, 2, '2012-01-01 09:03:00', null, 'bla bla #apple asdf')");
         query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (6, 2, '2012-01-01 10:15:00', null, 'bla bla kkkk #mac')");
+
+        query.exec("DROP TABLE relationship");
+        query.exec(
+            "CREATE TABLE relationship"
+            "("
+            "follower_id bigint NOT NULL,"
+            "followed_id bigint NOT NULL,"
+            "CONSTRAINT relationship_id PRIMARY KEY (follower_id , followed_id )"
+            ")"
+        );
+        query.exec("INSERT INTO relationship (follower_id, followed_id) VALUES (1, 2)");
+
 
     }
 };
@@ -75,6 +87,11 @@ TEST_F(ProfileTestCase, UserProfileLoading)
     ASSERT_NEAR(0.33, up->getProfile()->at("#unicamp"), 0.01);
     ASSERT_NEAR(0.33, up->getProfile()->at("#apple"), 0.01);
     ASSERT_NEAR(0.33, up->getProfile()->at("#mac"), 0.01);
+}
+
+TEST_F(ProfileTestCase, GetCandidateTweets)
+{
+
 }
 
 }
