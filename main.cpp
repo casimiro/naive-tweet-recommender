@@ -17,7 +17,7 @@ int main(int /*argc*/, char** /*argv*/) {
     db.setDatabaseName("tweets");
     db.setUserName("root");
     db.setPassword("zxc123");
-    
+
     if(!db.open())
     {
         std::cerr << "Could not open database" << std::endl;
@@ -44,28 +44,29 @@ int main(int /*argc*/, char** /*argv*/) {
     int users = 0;
     double globalMeanPosition = 0;
     double userMeanPosition;
+    int newsFound;
     while(std::getline(file, line))
     {
         long userId = atol(line.c_str());
         UserProfilePtr uProfile = UserProfile::getUserProfile(userId, start, end);
         SharedNewsVectorPtr newsShared = uProfile->getSharedNews(startEvaluation, endEvaluation);
-        
-        if(newsShared->size() < 5)
-            continue;
-
+        auto recs = uProfile->getSortedRecommendations(newsProfiles, endEvaluation);
+        newsFound = 0;
         userMeanPosition = 0;
         for (auto newsIt = newsShared->begin(); newsIt != newsShared->end(); newsIt++)
         {
-            auto recs = uProfile->getSortedRecommendations(newsProfiles, newsIt->getSharedAt());
+
             auto found = std::find(recs->begin(), recs->end(), newsIt->getNewsId());
 
             if(found != recs->end())
             {
-                auto pos = std::distance(recs->begin(), found);
+                newsFound++;
+                double pos = (double)std::distance(recs->begin(), found);
                 userMeanPosition += 1/(pos+1);
             }
 
         }
+
         userMeanPosition = userMeanPosition / newsShared->size();
         std::cout << "User mean pos: " << userMeanPosition << std::endl;
         globalMeanPosition += userMeanPosition;
@@ -74,6 +75,6 @@ int main(int /*argc*/, char** /*argv*/) {
 
     globalMeanPosition = globalMeanPosition / users;
     std::cout << "Global mean pos: " << globalMeanPosition << std::endl;
-    
+    std::cout << "Users: " << users << std::endl;
     file.close();
 }
