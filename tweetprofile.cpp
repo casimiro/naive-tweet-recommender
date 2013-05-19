@@ -9,7 +9,7 @@ TweetProfile::~TweetProfile()
 
 TweetProfile::TweetProfile(int _id, QDateTime _publishDate, ConceptMapPtr _profile):
     m_id(_id),
-    m_publishDate(_publishDate),
+    m_publishDateTime(_publishDate),
     m_profile(_profile)
 {
 }
