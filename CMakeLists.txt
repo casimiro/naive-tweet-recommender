@@ -7,7 +7,7 @@ set(QT_USE_QTSQL TRUE)
 include(${QT_USE_FILE})
 
 add_definitions(-std=c++11 -std=gnu++11 -pthread -W -Wall -Wno-unused-function -Ofast)
-add_executable(gaomodel sharednews.cpp utils.h profile.h newsprofile.cpp userprofile.cpp main.cpp)
+add_executable(gaomodel utils.h profile.h tweetprofile.cpp userprofile.cpp main.cpp)
 
 add_custom_command(TARGET gaomodel COMMAND cp ${CMAKE_SOURCE_DIR}/wi2011-user-sample.csv ${CMAKE_BINARY_DIR})
 

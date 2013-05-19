@@ -9,7 +9,8 @@ UserProfile::UserProfile(long _userId, ConceptMapPtr _profile, std::tm _start, s
     m_userId(_userId),
     m_profile(_profile),
     m_start(_start),
-    m_end(_end)
+    m_end(_end),
+    m_profileType(HASHTAG)
 {
 }
 
@@ -98,99 +99,41 @@ double UserProfile::cosineSimilarity(ConceptMapPtr _profile)
     return dot / (aNorm * bNorm);
 }
 
-IntegerListPtr UserProfile::getSortedRecommendations(NewsProfileListPtr _newsProfiles, std::tm _until)
+TweetProfileVectorPtr UserProfile::getCandidateTweets(std::tm _start, std::tm _end)
 {
-    std::time_t untilTime = mktime(&_until);
-    std::map<double, std::vector<int>> aux;
-    auto end = aux.end();
-    
-    double sim;
-    for (auto it = _newsProfiles->begin(); it != _newsProfiles->end(); it++)
-    {
-        if(it->get()->getPublishTime() > untilTime)
-            break;
+    QSqlQuery query;
+    TweetProfileVector tweetProfiles;
 
-        sim = cosineSimilarity(it->get()->getProfile());
-        if(aux.find(sim) == end)
-            aux[sim] = std::vector<int>();
-        aux[sim].push_back(it->get()->getNewsId());
-    }
-    
-    IntegerListPtr sortedNews = std::make_shared<IntegerList>();
-    for (auto it = aux.begin(); it != end; it++)
-    {
-        for (auto newsId : it->second)
-        {
-            sortedNews->push_back(newsId);
-        }
-    }
-    return sortedNews;
-}
-
-SharedNewsVectorPtr UserProfile::getSharedNews(std::tm _start, std::tm _end)
-{
-    SharedNewsVectorPtr news = std::make_shared<SharedNewsVector>();
     char s[19];
     char e[19];
     s[18] = '\0';
     s[18] = '\0';
     strftime(s, 19, "%Y-%m-%d %H:%M", &_start);
     strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
-    
-    QSqlQuery query;
-    query.prepare("SELECT newsId, creationTime FROM nas WHERE userId = :uid AND creationTime >= :start AND creationTime <= :end AND (strategy=31211 OR strategy=31111 OR strategy=13261)");
-    query.bindValue(":uid", (qlonglong) m_userId);
-    query.bindValue(":start", s);
-    query.bindValue(":end", e);
-    query.exec();
-    
-    while(query.next())
-    {
-        std::string dateString = query.value(1).toString().toStdString();
-        std::tm date;
-        strptime(dateString.c_str(), "%Y-%m-%d %H:%M:%S", &date);
 
-        news->push_back(SharedNews(query.value(0).toInt(), date));
-    }
-    
-    return news;
-}
-
-StringListPtr UserProfile::getSharedNewsLinks()
-{
-    StringListPtr news = std::make_shared<StringList>();
-    char s[19];
-    char e[19];
-    s[18] = '\0';
-    s[18] = '\0';
-    strftime(s, 19, "%Y-%m-%d %H:%M", &m_start);
-    strftime(e, 19, "%Y-%m-%d %H:%M", &m_end);
-    
-    QSqlQuery query;
-    query.prepare("SELECT content FROM tweets_sample as t WHERE t.userId = :uid AND t.creationTime >= :start AND t.creationTime <= :end AND content LIKE '%http%'");
-    query.bindValue(":uid", (qlonglong) m_userId);
-    query.bindValue(":start", s);
-    query.bindValue(":end", e);
-    query.exec();
-    
-    QRegExp rx("(http://(?:bbc\\.in|cnn|nyti\\.ms|on\\.cnn)[^\\(\\)\"' @#]+)");
-    while(query.next())
+    if(m_profileType == HASHTAG)
     {
-        QString content = query.value(0).toString();
-        int pos = 0;
-        while ((pos = rx.indexIn(content, pos)) != -1)
+        query.prepare(
+            "SELECT id, t.content, t.creation_time FROM tweet as t, relationship as r"
+            " WHERE t.user_id = r.followed_id AND r.follower_id = :uid "
+            "AND t.creation_time >= :start AND t.creation_time <= :end"
+        );
+        query.bindValue(":uid", (qlonglong) m_userId);
+        query.bindValue(":start", s);
+        query.bindValue(":end", e);
+        query.exec();
+        while(query.next())
         {
-            QString match = rx.cap(0);
-            QStringList vals = match.split("/");
-            if(vals.size() == 4 && vals.at(3).size() > 4)
-                news->push_back(match.toStdString());
-            else
-                std::cout << match.toStdString() << std::endl;
-            pos += rx.matchedLength();
+            long tweetId = query.value(0).toLongLong();
+            QString content = query.value(1).toString();
+            QDateTime creationTime = query.value(2).toDateTime();
+            std::string dateString = creationTime.toString("yyyy-MM-dd hh:mm:ss").toStdString();
+            std::tm date;
+            strptime(dateString.c_str(), "%Y-%m-%d %H:%M:%S", &date);
+            tweetProfiles.push_back(TweetProfile::getHashtagProfile(tweetId, date, content));
         }
     }
-    
-    return news;
+    return std::make_shared<TweetProfileVector>(tweetProfiles);
 }
 
 }

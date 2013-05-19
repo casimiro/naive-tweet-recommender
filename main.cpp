@@ -5,8 +5,6 @@
 #include <QtSql/QtSql>
 
 #include "userprofile.h"
-#include "newsprofile.h"
-#include "sharednews.h"
 
 using namespace casimiro;
 

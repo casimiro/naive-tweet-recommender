@@ -2,12 +2,14 @@
 #define USERPROFILE_H
 #include <ctime>
 #include "profile.h"
-#include "newsprofile.h"
 #include "utils.h"
-#include "sharednews.h"
-
+#include "tweetprofile.h"
 
 namespace casimiro {
+
+enum ProfileType {
+    HASHTAG
+};
 
 class UserProfile;
 typedef std::shared_ptr<UserProfile> UserProfilePtr;
@@ -23,12 +25,11 @@ private:
     ConceptMapPtr m_profile;
     std::tm m_start;
     std::tm m_end;
+    ProfileType m_profileType;
     
     virtual double cosineSimilarity(ConceptMapPtr _profile);
 public:
-    virtual IntegerListPtr getSortedRecommendations(NewsProfileListPtr _newsProfiles, std::tm _until);
-    virtual StringListPtr getSharedNewsLinks();
-    virtual SharedNewsVectorPtr getSharedNews(std::tm _start, std::tm _end);
+    virtual TweetProfileVectorPtr getCandidateTweets(std::tm _start, std::tm _end);
     virtual ConceptMapPtr getProfile() { return m_profile; }
     virtual long getUserId() { return m_userId; }
     virtual std::tm getStart() { return m_start; }

@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <ctime>
 #include "../userprofile.h"
-#include "../newsprofile.h"
 #include <QtSql/QtSql>
 
 namespace casimiro {
@@ -46,8 +45,6 @@ protected:
             ")"
         );
         query.exec("INSERT INTO relationship (follower_id, followed_id) VALUES (1, 2)");
-
-
     }
 };
 
@@ -78,20 +75,42 @@ TEST_F(ProfileTestCase, UserProfileLoading)
     ASSERT_NEAR(0.33, up->getProfile()->at("#google"), 0.01);
     ASSERT_NEAR(0.33, up->getProfile()->at("#linux"), 0.01);
     
-    up = UserProfile::getHashtagProfile(1, start, end);
+    up = UserProfile::getHashtagProfile(2, start, end);
     
     ASSERT_NE(nullptr, up);
     ASSERT_NE(up->getProfile(), nullptr);
     ASSERT_EQ(up->getUserId(), 2);
-    ASSERT_EQ(3, up->getProfile()->size());
-    ASSERT_NEAR(0.33, up->getProfile()->at("#unicamp"), 0.01);
-    ASSERT_NEAR(0.33, up->getProfile()->at("#apple"), 0.01);
-    ASSERT_NEAR(0.33, up->getProfile()->at("#mac"), 0.01);
+    ASSERT_EQ(2, up->getProfile()->size());
+    ASSERT_NEAR(0.50, up->getProfile()->at("#unicamp"), 0.01);
+    ASSERT_NEAR(0.50, up->getProfile()->at("#apple"), 0.01);
 }
 
 TEST_F(ProfileTestCase, GetCandidateTweets)
 {
+    std::tm start;
+    std::tm end;
 
+    start.tm_year = 2012 - 1900;
+    start.tm_mon = 0;
+    start.tm_mday = 1;
+    start.tm_hour = 9;
+    start.tm_min = 0;
+
+    end.tm_year = 2012 - 1900;
+    end.tm_mon = 0;
+    end.tm_mday = 1;
+    end.tm_hour = 10;
+    end.tm_min = 0;
+
+    UserProfilePtr up = UserProfile::getHashtagProfile(1, start, end);
+    auto tweetProfiles = up->getCandidateTweets(start, end);
+
+    ASSERT_EQ(2, tweetProfiles->size());
+    ASSERT_EQ(tweetProfiles->at(0)->getProfile()->size(), 1);
+    ASSERT_EQ(tweetProfiles->at(1)->getProfile()->size(), 1);
+
+    ASSERT_NEAR(1.0, tweetProfiles->at(0)->getProfile()->at("#unicamp"), 0.1);
+    ASSERT_NEAR(1.0, tweetProfiles->at(1)->getProfile()->at("#apple"), 0.1);
 }
 
 }
