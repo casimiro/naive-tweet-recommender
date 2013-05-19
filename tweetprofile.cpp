@@ -7,14 +7,14 @@ TweetProfile::~TweetProfile()
 {
 }
 
-TweetProfile::TweetProfile(int _id, std::tm _publishDate, ConceptMapPtr _profile):
+TweetProfile::TweetProfile(int _id, QDateTime _publishDate, ConceptMapPtr _profile):
     m_id(_id),
     m_publishDate(_publishDate),
     m_profile(_profile)
 {
 }
 
-TweetProfilePtr TweetProfile::getHashtagProfile(int _id, std::tm _publishDate, QString _tweetContent)
+TweetProfilePtr TweetProfile::getHashtagProfile(int _id, QDateTime _publishDate, QString _tweetContent)
 {
     ConceptMap conceptMap;
     QRegExp rx("#\\w+");

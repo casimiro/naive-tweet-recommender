@@ -5,7 +5,7 @@
 
 namespace casimiro {
     
-UserProfile::UserProfile(long _userId, ConceptMapPtr _profile, std::tm _start, std::tm _end):
+UserProfile::UserProfile(long _userId, ConceptMapPtr _profile, QDateTime _start, QDateTime _end):
     m_userId(_userId),
     m_profile(_profile),
     m_start(_start),
@@ -18,22 +18,14 @@ UserProfile::~UserProfile()
 {
 }
 
-UserProfilePtr UserProfile::getHashtagProfile(long _userId, std::tm _start, std::tm _end)
+UserProfilePtr UserProfile::getHashtagProfile(long _userId, QDateTime _start, QDateTime _end)
 {
     ConceptMap conceptMap;
-    
-    char s[19];
-    char e[19];
-    s[18] = '\0';
-    s[18] = '\0';
-    strftime(s, 19, "%Y-%m-%d %H:%M", &_start);
-    strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
-    
     QSqlQuery query;
     query.prepare("SELECT content FROM tweet WHERE user_id = :uid AND creation_time >= :start AND creation_time <= :end AND content LIKE '%#%'");
     query.bindValue(":uid", (qlonglong) _userId);
-    query.bindValue(":start", s);
-    query.bindValue(":end", e);
+    query.bindValue(":start", _start.toString("yyyy-MM-dd HH:mm:ss"));
+    query.bindValue(":end", _end.toString("yyyy-MM-dd HH:mm:ss"));
     query.exec();
     
     float sum = 0;
@@ -99,17 +91,10 @@ double UserProfile::cosineSimilarity(ConceptMapPtr _profile)
     return dot / (aNorm * bNorm);
 }
 
-TweetProfileVectorPtr UserProfile::getCandidateTweets(std::tm _start, std::tm _end)
+TweetProfileVectorPtr UserProfile::getCandidateTweets(QDateTime _start, QDateTime _end)
 {
     QSqlQuery query;
     TweetProfileVector tweetProfiles;
-
-    char s[19];
-    char e[19];
-    s[18] = '\0';
-    s[18] = '\0';
-    strftime(s, 19, "%Y-%m-%d %H:%M", &_start);
-    strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
 
     if(m_profileType == HASHTAG)
     {
@@ -119,21 +104,42 @@ TweetProfileVectorPtr UserProfile::getCandidateTweets(std::tm _start, std::tm _e
             "AND t.creation_time >= :start AND t.creation_time <= :end"
         );
         query.bindValue(":uid", (qlonglong) m_userId);
-        query.bindValue(":start", s);
-        query.bindValue(":end", e);
+        query.bindValue(":start", _start.toString("yyyy-MM-dd HH:mm:ss"));
+        query.bindValue(":end", _end.toString("yyyy-MM-dd HH:mm:ss"));
         query.exec();
         while(query.next())
         {
             long tweetId = query.value(0).toLongLong();
             QString content = query.value(1).toString();
             QDateTime creationTime = query.value(2).toDateTime();
-            std::string dateString = creationTime.toString("yyyy-MM-dd hh:mm:ss").toStdString();
-            std::tm date;
-            strptime(dateString.c_str(), "%Y-%m-%d %H:%M:%S", &date);
-            tweetProfiles.push_back(TweetProfile::getHashtagProfile(tweetId, date, content));
+            tweetProfiles.push_back(TweetProfile::getHashtagProfile(tweetId, creationTime, content));
         }
     }
     return std::make_shared<TweetProfileVector>(tweetProfiles);
+}
+
+RetweetVectorPtr UserProfile::getRetweets(QDateTime _start, QDateTime _end)
+{
+    RetweetVector retweets;
+    QSqlQuery query;
+    query.prepare(
+        "SELECT creation_time, retweeted FROM tweet WHERE user_id = :uid "
+        "AND retweeted IS NOT NULL AND creation_time >= :start AND creation_time <= :end "
+        "ORDER BY creation_time ASC"
+    );
+    query.bindValue(":uid", (qlonglong) m_userId);
+    query.bindValue(":start", _start.toString("yyyy-MM-dd HH:mm:ss"));
+    query.bindValue(":end", _end.toString("yyyy-MM-dd HH:mm:ss"));
+    query.exec();
+
+    while(query.next())
+    {
+        QDateTime creationTime = query.value(0).toDateTime();
+        long retweetId = query.value(1).toLongLong();
+        retweets.push_back(std::make_pair(creationTime, retweetId));
+    }
+
+    return std::make_shared<RetweetVector>(retweets);
 }
 
 }

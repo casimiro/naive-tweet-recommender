@@ -31,6 +31,9 @@ protected:
         query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (2, 1, '2012-01-01 09:10:00', null, 'bla #google bla')");
         query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (3, 1, '2012-01-01 09:15:00', null, 'bla bla #linux')");
 
+        query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (7, 1, '2012-01-01 11:00:00', 4, 'RT: #UNICAMP bla bla bla')");
+        query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (8, 1, '2012-01-01 11:03:00', 5, 'RT: bla bla #apple asdf')");
+
         query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (4, 2, '2012-01-01 09:00:00', null, '#UNICAMP bla bla bla')");
         query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (5, 2, '2012-01-01 09:03:00', null, 'bla bla #apple asdf')");
         query.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (6, 2, '2012-01-01 10:15:00', null, 'bla bla kkkk #mac')");
@@ -50,20 +53,8 @@ protected:
 
 TEST_F(ProfileTestCase, UserProfileLoading)
 {
-    std::tm start;
-    std::tm end;
-    
-    start.tm_year = 2012 - 1900;
-    start.tm_mon = 0;
-    start.tm_mday = 1;
-    start.tm_hour = 9;
-    start.tm_min = 0;
-    
-    end.tm_year = 2012 - 1900;
-    end.tm_mon = 0;
-    end.tm_mday = 1;
-    end.tm_hour = 10;
-    end.tm_min = 0;
+    QDateTime start = QDateTime::fromString("2012-01-01 09:00:00", "yyyy-MM-dd HH:mm:ss");
+    QDateTime end = QDateTime::fromString("2012-01-01 10:00:00", "yyyy-MM-dd HH:mm:ss");
     
     UserProfilePtr up = UserProfile::getHashtagProfile(1, start, end);
     
@@ -87,20 +78,8 @@ TEST_F(ProfileTestCase, UserProfileLoading)
 
 TEST_F(ProfileTestCase, GetCandidateTweets)
 {
-    std::tm start;
-    std::tm end;
-
-    start.tm_year = 2012 - 1900;
-    start.tm_mon = 0;
-    start.tm_mday = 1;
-    start.tm_hour = 9;
-    start.tm_min = 0;
-
-    end.tm_year = 2012 - 1900;
-    end.tm_mon = 0;
-    end.tm_mday = 1;
-    end.tm_hour = 10;
-    end.tm_min = 0;
+    QDateTime start = QDateTime::fromString("2012-01-01 09:00:00", "yyyy-MM-dd HH:mm:ss");
+    QDateTime end = QDateTime::fromString("2012-01-01 10:00:00", "yyyy-MM-dd HH:mm:ss");
 
     UserProfilePtr up = UserProfile::getHashtagProfile(1, start, end);
     auto tweetProfiles = up->getCandidateTweets(start, end);
@@ -111,6 +90,22 @@ TEST_F(ProfileTestCase, GetCandidateTweets)
 
     ASSERT_NEAR(1.0, tweetProfiles->at(0)->getProfile()->at("#unicamp"), 0.1);
     ASSERT_NEAR(1.0, tweetProfiles->at(1)->getProfile()->at("#apple"), 0.1);
+}
+
+TEST_F(ProfileTestCase, GetRetweets)
+{
+    QDateTime start = QDateTime::fromString("2012-01-01 11:00:00", "yyyy-MM-dd HH:mm:ss");
+    QDateTime end = QDateTime::fromString("2012-01-01 12:00:00", "yyyy-MM-dd HH:mm:ss");
+
+    UserProfilePtr up = UserProfile::getHashtagProfile(1, start, end);
+    auto retweets = up->getRetweets(start, end);
+
+    ASSERT_EQ(2, retweets->size());
+    ASSERT_EQ(4, retweets->at(0).second);
+    ASSERT_EQ(0, retweets->at(0).first.time().minute());
+
+    ASSERT_EQ(5, retweets->at(1).second);
+    ASSERT_EQ(3, retweets->at(1).first.time().minute());
 }
 
 }

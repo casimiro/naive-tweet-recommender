@@ -5,6 +5,7 @@
 #include <vector>
 #include <ctime>
 #include <QString>
+#include <QDateTime>
 
 namespace casimiro {
 
@@ -19,13 +20,13 @@ public:
     virtual ~TweetProfile();
 
 private:
-    TweetProfile(int _id, std::tm _publishDate, ConceptMapPtr _profile);
+    TweetProfile(int _id, QDateTime _publishDate, ConceptMapPtr _profile);
     int m_id;
-    std::tm m_publishDate;
+    QDateTime m_publishDate;
     ConceptMapPtr m_profile;
 
 public:
-    static TweetProfilePtr getHashtagProfile(int _id, std::tm _publishDate, QString _tweetContent);
+    static TweetProfilePtr getHashtagProfile(int _id, QDateTime _publishDate, QString _tweetContent);
     virtual ConceptMapPtr getProfile() { return m_profile; }
 };
 
