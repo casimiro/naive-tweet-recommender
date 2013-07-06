@@ -18,11 +18,15 @@ UserProfile::~UserProfile()
 {
 }
 
-UserProfilePtr UserProfile::getBagOfWordsProfile(long _userId, QDateTime _start, QDateTime _end)
+UserProfilePtr UserProfile::getBagOfWordsProfile(long _userId, QDateTime _start, QDateTime _end, bool _social)
 {
     ConceptMap conceptMap;
     QSqlQuery query;
-    query.prepare("SELECT content FROM tweet WHERE user_id = :uid AND creation_time >= :start AND creation_time <= :end");
+    if(_social)
+        query.prepare("SELECT content FROM tweet,relationship WHERE (user_id = :uid OR user_id = followed_id) AND follower_id = :uid AND creation_time >= :start AND creation_time <= :end");
+    else
+        query.prepare("SELECT content FROM tweet WHERE user_id = :uid AND creation_time >= :start AND creation_time <= :end");
+
     query.bindValue(":uid", (qlonglong) _userId);
     query.bindValue(":start", _start.toString("yyyy-MM-dd HH:mm:ss"));
     query.bindValue(":end", _end.toString("yyyy-MM-dd HH:mm:ss"));
@@ -56,11 +60,15 @@ UserProfilePtr UserProfile::getBagOfWordsProfile(long _userId, QDateTime _start,
     return up;
 }
 
-UserProfilePtr UserProfile::getHashtagProfile(long _userId, QDateTime _start, QDateTime _end)
+UserProfilePtr UserProfile::getHashtagProfile(long _userId, QDateTime _start, QDateTime _end, bool _social)
 {
     ConceptMap conceptMap;
     QSqlQuery query;
-    query.prepare("SELECT content FROM tweet WHERE user_id = :uid AND creation_time >= :start AND creation_time <= :end AND content LIKE '%#%'");
+    if(_social)
+        query.prepare("SELECT content FROM tweet,relationship WHERE (user_id = :uid OR user_id = followed_id) AND follower_id = :uid AND creation_time >= :start AND creation_time <= :end AND content LIKE '%#%'");
+    else
+        query.prepare("SELECT content FROM tweet WHERE user_id = :uid AND creation_time >= :start AND creation_time <= :end AND content LIKE '%#%'");
+
     query.bindValue(":uid", (qlonglong) _userId);
     query.bindValue(":start", _start.toString("yyyy-MM-dd HH:mm:ss"));
     query.bindValue(":end", _end.toString("yyyy-MM-dd HH:mm:ss"));

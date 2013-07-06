@@ -56,7 +56,7 @@ TEST_F(ProfileTestCase, UserProfileLoading)
     QDateTime start = QDateTime::fromString("2012-01-01 09:00:00", "yyyy-MM-dd HH:mm:ss");
     QDateTime end = QDateTime::fromString("2012-01-01 10:00:00", "yyyy-MM-dd HH:mm:ss");
     
-    UserProfilePtr up = UserProfile::getHashtagProfile(1, start, end);
+    UserProfilePtr up = UserProfile::getHashtagProfile(1, start, end, false);
     
     ASSERT_NE(nullptr, up);
     ASSERT_NE(up->getProfile(), nullptr);
@@ -66,7 +66,7 @@ TEST_F(ProfileTestCase, UserProfileLoading)
     ASSERT_NEAR(0.33, up->getProfile()->at("#google"), 0.01);
     ASSERT_NEAR(0.33, up->getProfile()->at("#linux"), 0.01);
     
-    up = UserProfile::getHashtagProfile(2, start, end);
+    up = UserProfile::getHashtagProfile(2, start, end, false);
     
     ASSERT_NE(nullptr, up);
     ASSERT_NE(up->getProfile(), nullptr);
@@ -81,7 +81,7 @@ TEST_F(ProfileTestCase, GetCandidateTweets)
     QDateTime start = QDateTime::fromString("2012-01-01 09:00:00", "yyyy-MM-dd HH:mm:ss");
     QDateTime end = QDateTime::fromString("2012-01-01 10:00:00", "yyyy-MM-dd HH:mm:ss");
 
-    UserProfilePtr up = UserProfile::getHashtagProfile(1, start, end);
+    UserProfilePtr up = UserProfile::getHashtagProfile(1, start, end, false);
     auto tweetProfiles = up->getCandidateTweets(start, end);
 
     ASSERT_EQ(2, tweetProfiles->size());
@@ -97,7 +97,7 @@ TEST_F(ProfileTestCase, GetRetweets)
     QDateTime start = QDateTime::fromString("2012-01-01 11:00:00", "yyyy-MM-dd HH:mm:ss");
     QDateTime end = QDateTime::fromString("2012-01-01 12:00:00", "yyyy-MM-dd HH:mm:ss");
 
-    UserProfilePtr up = UserProfile::getHashtagProfile(1, start, end);
+    UserProfilePtr up = UserProfile::getHashtagProfile(1, start, end, false);
     auto retweets = up->getRetweets(start, end);
 
     ASSERT_EQ(2, retweets->size());

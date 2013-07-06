@@ -77,8 +77,6 @@ LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
     std::map<double, std::vector<long>> aux;
     auto end = aux.end();
     
-    //QDateTime from = _until.addDays(-1);
-    //if(m_bestTimeframe.find(_userProfile->getUserId()) != m_bestTimeframe.end())
     QDateTime from = _until.addSecs(-m_bestTimeframe[_userProfile->getUserId()]);
     double sim;
     for (auto candidate : *_candidates)
@@ -132,7 +130,7 @@ void Evaluation::run()
     {
         try
         {
-            auto userProfile = UserProfile::getBagOfWordsProfile(userId, m_startTraining, m_endTraining);
+            auto userProfile = UserProfile::getHashtagProfile(userId, m_startTraining, m_endTraining, true);
             auto retweets = userProfile->getRetweets(m_startEvaluation, m_endEvaluation);
             if(retweets->size() == 0)
             {

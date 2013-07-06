@@ -41,8 +41,8 @@ public:
     virtual QDateTime getStart() { return m_start; }
     virtual QDateTime getEnd() { return m_end; }
     
-    static UserProfilePtr getHashtagProfile(long _userId, QDateTime _start, QDateTime _end);
-    static UserProfilePtr getBagOfWordsProfile(long _userId, QDateTime _start, QDateTime _end);
+    static UserProfilePtr getHashtagProfile(long _userId, QDateTime _start, QDateTime _end, bool _social);
+    static UserProfilePtr getBagOfWordsProfile(long _userId, QDateTime _start, QDateTime _end, bool _social);
 };
 
 }
