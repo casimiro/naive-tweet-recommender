@@ -1,5 +1,7 @@
 #include "evaluation.h"
 #include <iostream>
+#include <algorithm>
+#include <fstream>
 
 namespace casimiro {
 
@@ -14,6 +16,16 @@ Evaluation::Evaluation(LongVectorPtr _userIds,
     m_startEvaluation(_startEvaluation),
     m_endEvaluation(_endEvaluation)
 {
+    std::ifstream users("users_timeframe");
+    std::string line;
+    while(std::getline(users, line))
+    {
+        size_t commaPos = line.find(",");
+        int userId = atoi(line.substr(0, commaPos).c_str());
+        double timeFrame = atof(line.substr(commaPos+1, line.size() - commaPos).c_str());
+        m_bestTimeframe[userId] = timeFrame;
+    }
+        
 }
 
 Evaluation::~Evaluation()
@@ -64,10 +76,15 @@ LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
 {
     std::map<double, std::vector<long>> aux;
     auto end = aux.end();
-
+    
+    //QDateTime from = _until.addDays(-1);
+    //if(m_bestTimeframe.find(_userProfile->getUserId()) != m_bestTimeframe.end())
+    QDateTime from = _until.addSecs(-m_bestTimeframe[_userProfile->getUserId()]);
     double sim;
     for (auto candidate : *_candidates)
     {
+        if(candidate->getPublishDateTime() < from)
+            continue;
         if(candidate->getPublishDateTime() > _until)
             break;
 
@@ -87,32 +104,70 @@ LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
     return std::make_shared<LongVector>(rankedCandidates);
 }
 
+LongVectorPtr Evaluation::rankCandidatesByDate(TweetProfileVectorPtr _candidates, QDateTime _until)
+{
+    LongVector rankedCandidates;
+    QDateTime from = _until.addDays(-1);
+    for (auto candidate : *_candidates)
+    {
+        if(candidate->getPublishDateTime() < from)
+            continue;
+        if(candidate->getPublishDateTime() > _until)
+            break;
+        rankedCandidates.push_back(candidate->getTweetId());
+    }
+    
+    std::reverse(rankedCandidates.begin(), rankedCandidates.end());
+    return std::make_shared<LongVector>(rankedCandidates);
+}
+
+
 void Evaluation::run()
 {
+    std::cout << "Start running" << std::endl;
     double meanMrr = 0;
+    double userMeanMrr;
     double mrr;
     for (auto userId : *m_userIds)
     {
-        auto userProfile = UserProfile::getHashtagProfile(userId, m_startTraining, m_endTraining);
-        auto candidateTweets = userProfile->getCandidateTweets(m_startEvaluation, m_endEvaluation);
-        auto retweets = userProfile->getRetweets(m_startEvaluation, m_endEvaluation);
-
-        for (auto retweet : *retweets)
+        try
         {
-            auto ranked = rankCandidates(candidateTweets, userProfile, retweet.first);
-            auto found = std::find(ranked->begin(), ranked->end(), retweet.second);
-            size_t index = std::distance(ranked->begin(), found);
-            
-            if(index == ranked->size())
-                mrr = 0.0;
-            else
-                mrr = 1 / (index + 1);
+            auto userProfile = UserProfile::getBagOfWordsProfile(userId, m_startTraining, m_endTraining);
+            auto retweets = userProfile->getRetweets(m_startEvaluation, m_endEvaluation);
+            if(retweets->size() == 0)
+            {
+                std::cout << userId << "," << -1 << std::endl;
+                continue;
+            }
 
-            meanMrr += mrr;
+            auto candidateTweets = userProfile->getCandidateTweets(m_startEvaluation, m_endEvaluation);
+            userMeanMrr = 0.0;
+
+            for (auto retweet : *retweets)
+            {
+                auto ranked = rankCandidates(candidateTweets, userProfile, retweet.first);
+                auto found = std::find(ranked->begin(), ranked->end(), retweet.second);
+                double index = (double) std::distance(ranked->begin(), found);
+
+                if(index == ranked->size())
+                    mrr = 0.0;
+                else
+                    mrr = 1.0 / (index + 1.0);
+
+                userMeanMrr += mrr;
+            }
+            userMeanMrr = userMeanMrr / retweets->size();
+            std::cout << userId << "," << userMeanMrr << std::endl;
+            meanMrr += userMeanMrr;
+        }
+        catch(...)
+        {
+            std::cout << userId << "," << -2 << std::endl;
+            continue;
         }
     }
     meanMrr = meanMrr / m_userIds->size();
-    std::cout << "Mean MRR: " << meanMrr << std::endl;
+    std::cout << "General Mean MRR: " << meanMrr << std::endl;
 }
 
 }

@@ -5,15 +5,16 @@
 #include <QtSql/QtSql>
 
 #include "userprofile.h"
+#include "evaluation.h"
 
 using namespace casimiro;
 
 int main(int /*argc*/, char** /*argv*/) {
     
-    QSqlDatabase db = QSqlDatabase::addDatabase("QMYSQL");
+    QSqlDatabase db = QSqlDatabase::addDatabase("QPSQL");
     db.setHostName("localhost");
-    db.setDatabaseName("tweets");
-    db.setUserName("root");
+    db.setDatabaseName("tweetsbr2");
+    db.setUserName("tweetsbr");
     db.setPassword("zxc123");
 
     if(!db.open())
@@ -22,15 +23,18 @@ int main(int /*argc*/, char** /*argv*/) {
         return -1;
     }
     
-    std::tm start;
-    strptime("2000-12-20 00:00:00", "%Y-%m-%d %H:%H:%S", &start);
-    std::tm end;
-    strptime("2010-12-19 00:00:00", "%Y-%m-%d %H:%H:%S", &end);
+    QDateTime startTraining = QDateTime::fromString("2001-01-01 00:00:00", "yyyy-MM-dd HH:mm:ss");
+    QDateTime endTraining = QDateTime::fromString("2013-04-01 00:00:00", "yyyy-MM-dd HH:mm:ss");
+    QDateTime startTest = QDateTime::fromString("2013-04-01 00:00:01", "yyyy-MM-dd HH:mm:ss");
+    QDateTime endTest = QDateTime::fromString("2013-05-01 00:00:00", "yyyy-MM-dd HH:mm:ss");
+    LongVector userIds;
 
-    std::tm startEvaluation;
-    strptime("2010-12-20 00:00:00", "%Y-%m-%d %H:%H:%S", &startEvaluation);
+    std::ifstream users("users_good");
+    std::string line;
+    while(std::getline(users, line))
+        userIds.push_back(atol(line.c_str()));
 
-    std::tm endEvaluation;
-    strptime("2010-12-26 23:59:59", "%Y-%m-%d %H:%H:%S", &endEvaluation);
+    Evaluation evaluation(std::make_shared<LongVector>(userIds), startTraining, endTraining, startTest, endTest);
 
+    evaluation.run();
 }

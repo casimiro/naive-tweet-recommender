@@ -20,16 +20,18 @@ public:
     virtual ~TweetProfile();
 
 private:
-    TweetProfile(int _id, QDateTime _publishDate, ConceptMapPtr _profile);
-    int m_id;
+    TweetProfile(long _id, QDateTime _publishDate, ConceptMapPtr _profile);
+    long m_id;
     QDateTime m_publishDateTime;
     ConceptMapPtr m_profile;
 
 public:
-    static TweetProfilePtr getHashtagProfile(int _id, QDateTime _publishDate, QString _tweetContent);
     virtual ConceptMapPtr getProfile() { return m_profile; }
     virtual QDateTime getPublishDateTime() { return m_publishDateTime; }
     virtual long getTweetId() { return m_id; }
+
+    static TweetProfilePtr getBagOfWordsProfile(long _id, QDateTime _publishDate, QString _tweetContent);
+    static TweetProfilePtr getHashtagProfile(long _id, QDateTime _publishDate, QString _tweetContent);
 };
 
 }

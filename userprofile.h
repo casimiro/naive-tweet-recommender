@@ -9,7 +9,8 @@
 namespace casimiro {
 
 enum ProfileType {
-    HASHTAG
+    HASHTAG,
+    BAG_OF_WORDS
 };
 
 class UserProfile;
@@ -21,7 +22,7 @@ typedef std::shared_ptr<RetweetVector> RetweetVectorPtr;
 class UserProfile : public Profile
 {
 public:
-    UserProfile(long _userId, ConceptMapPtr _profile, QDateTime _start, QDateTime _end);
+    UserProfile(long _userId, ConceptMapPtr _profile, QDateTime _start, QDateTime _end, ProfileType _profileType);
     virtual ~UserProfile();
     
 private:
@@ -41,6 +42,7 @@ public:
     virtual QDateTime getEnd() { return m_end; }
     
     static UserProfilePtr getHashtagProfile(long _userId, QDateTime _start, QDateTime _end);
+    static UserProfilePtr getBagOfWordsProfile(long _userId, QDateTime _start, QDateTime _end);
 };
 
 }
