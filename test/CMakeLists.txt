@@ -4,7 +4,7 @@ find_library(LIBGTEST_MAIN NAMES gtest_main)
 
 include_directories(${SQLITE3_INCLUDE_DIRS})
 
-add_executable(tests userprofiletests.cpp ../userprofile.cpp ../tweetprofile.cpp)
+add_executable(tests userprofiletests.cpp ../userprofile.cpp ../tweetprofile.cpp ../dateutils.cpp)
 
 enable_testing()
 

@@ -80,7 +80,7 @@ LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
     auto end = aux.end();
     
     std::tm from = _until;
-    from.tm_sec -= m_bestTimeframe[_userProfile->getUserId()];
+    from.tm_sec -= (int)m_bestTimeframe[_userProfile->getUserId()];
 
     double sim;
     for (auto candidate : *_candidates)

@@ -4,6 +4,7 @@
 #include <boost/regex.hpp>
 #include <algorithm>
 #include <ctime>
+#include "dateutils.h"
 
 namespace casimiro {
     
@@ -37,7 +38,7 @@ ConceptMap UserProfile::buildConceptMap(pqxx::result &_rows, std::string _patter
         while(boost::regex_search(start, content.cend(), match, rx, boost::match_default))
         {
             std::string found(match[0].first, match[0].second);
-            std::transform(found.begin(), found.end(), found.begin(), ::tolower);
+            //std::transform(found.begin(), found.end(), found.begin(), ::tolower);
 
             if(conceptMap.find(found) == conceptMap.end())
                 conceptMap.insert(std::make_pair(found, 0));
@@ -62,17 +63,12 @@ UserProfilePtr UserProfile::getBagOfWordsProfile(PqConnectionPtr _con, long _use
 {
     pqxx::nontransaction t(*_con);
 
-    char s[19];
-    char e[19];
-    strftime(s, 19, "%Y-%m-%d %H:%M", &_start);
-    strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
-
     if(_social)
         _con->prepare("pbow", "SELECT content FROM tweet,relationship WHERE (user_id = $1 OR user_id = followed_id) AND follower_id = $1 AND creation_time >= $2 AND creation_time <= $3");
     else
         _con->prepare("pbow", "SELECT content FROM tweet WHERE user_id = $1 AND creation_time >= $2 AND creation_time <= $3");
 
-    pqxx::result rows = t.prepared("pbow")(_userId)(s)(e).exec();
+    pqxx::result rows = t.prepared("pbow")(_userId)(DateUtils::TmToString(_start))(DateUtils::TmToString(_end)).exec();
 
     UserProfilePtr up = std::make_shared<UserProfile>(_con, _userId, std::make_shared<ConceptMap>(buildConceptMap(rows, "\\w{3,}")), _start, _end, BAG_OF_WORDS);
 
@@ -84,17 +80,12 @@ UserProfilePtr UserProfile::getHashtagProfile(PqConnectionPtr _con, long _userId
 {
     pqxx::nontransaction t(*_con);
 
-    char s[19];
-    char e[19];
-    strftime(s, 19, "%Y-%m-%d %H:%M", &_start);
-    strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
-
     if(_social)
         _con->prepare("ph", "SELECT content FROM tweet,relationship WHERE (user_id = $1 OR user_id = followed_id) AND follower_id = $1 AND creation_time >= $2 AND creation_time <= $3 AND content LIKE '%#%'");
     else
         _con->prepare("ph", "SELECT content FROM tweet WHERE user_id = $1 AND creation_time >= $2 AND creation_time <= $3 AND content LIKE '%#%'");
 
-    pqxx::result rows = t.prepared("ph")(_userId)(s)(e).exec();
+    pqxx::result rows = t.prepared("ph")(_userId)(DateUtils::TmToString(_start))(DateUtils::TmToString(_end)).exec();
     t.commit();
 
     UserProfilePtr up = std::make_shared<UserProfile>(_con, _userId, std::make_shared<ConceptMap>(buildConceptMap(rows, "#\\w+")), _start, _end, HASHTAG);
@@ -143,10 +134,6 @@ TweetProfileVectorPtr UserProfile::getCandidateTweets(std::tm _start, std::tm _e
 {
     pqxx::nontransaction t(*m_con);
     TweetProfileVector tweetProfiles;
-    char s[19];
-    char e[19];
-    strftime(s, 19, "%Y-%m-%d %H:%M", &_start);
-    strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
 
     if(m_profileType == HASHTAG)
     {
@@ -155,14 +142,12 @@ TweetProfileVectorPtr UserProfile::getCandidateTweets(std::tm _start, std::tm _e
             "WHERE user_id IN (select followed_id from relationship WHERE follower_id = $1)"
             "AND creation_time >= $2 AND creation_time <= $3 AND content LIKE '%#%' ORDER BY creation_time ASC"
         );
-        pqxx::result rows = t.prepared("ct")(m_userId)(std::string(s))(std::string(e)).exec();
+        pqxx::result rows = t.prepared("ct")(m_userId)(DateUtils::TmToString(_start))(DateUtils::TmToString(_end)).exec();
         for(auto row : rows)
         {
             long tweetId = row["id"].as<long>();
             std::string content = row["content"].c_str();
-            std::tm creationTime;
-            strptime(row["creation_time"].c_str(), "%Y-%m-%d %H:%M", &creationTime);
-
+            std::tm creationTime = DateUtils::StringToTm(row["creation_time"].c_str());
             tweetProfiles.push_back(TweetProfile::getHashtagProfile(tweetId, creationTime, content));
         }
     }
@@ -173,13 +158,12 @@ TweetProfileVectorPtr UserProfile::getCandidateTweets(std::tm _start, std::tm _e
             "WHERE user_id IN (select followed_id from relationship WHERE follower_id = $1) "
             "AND creation_time >= $2 AND creation_time <= $3 ORDER BY creation_time ASC"
         );
-        pqxx::result rows = t.prepared("ct")(m_userId)(s)(e).exec();
+        pqxx::result rows = t.prepared("ct")(m_userId)(DateUtils::TmToString(_start))(DateUtils::TmToString(_end)).exec();
         for(auto row : rows)
         {
             long tweetId = row["id"].as<long>();
             std::string content = row["content"].c_str();
-            std::tm creationTime;
-            strptime(row["creation_time"].c_str(), "%Y-%m-%d %H:%M", &creationTime);
+            std::tm creationTime = DateUtils::StringToTm(row["creation_time"].c_str());
             tweetProfiles.push_back(TweetProfile::getBagOfWordsProfile(tweetId, creationTime, content));
         }
     }
@@ -191,10 +175,6 @@ RetweetVectorPtr UserProfile::getRetweets(std::tm _start, std::tm _end)
 {
     RetweetVector retweets;
     pqxx::nontransaction t(*m_con);
-    char s[19];
-    char e[19];
-    strftime(s, 19, "%Y-%m-%d %H:%M", &_start);
-    strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
     
     if(m_profileType == HASHTAG)
     {
@@ -213,12 +193,11 @@ RetweetVectorPtr UserProfile::getRetweets(std::tm _start, std::tm _end)
         );
     }
 
-    pqxx::result rows = t.prepared("gr")(m_userId)(s)(e).exec();
+    pqxx::result rows = t.prepared("gr")(m_userId)(DateUtils::TmToString(_start))(DateUtils::TmToString(_end)).exec();
 
     for(auto row : rows)
     {
-        std::tm creationTime;
-        strptime(row["creation_time"].c_str(), "%Y-%m-%d %X", &creationTime);
+        std::tm creationTime = DateUtils::StringToTm(row["creation_time"].c_str());
         retweets.push_back(std::make_pair(creationTime, row["retweeted"].as<long>()));
     }
 

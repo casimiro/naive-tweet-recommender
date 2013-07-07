@@ -18,7 +18,7 @@ endif()
 
 
 
-add_executable(gaomodel evaluation.cpp utils.h profile.h tweetprofile.cpp userprofile.cpp main.cpp)
+add_executable(gaomodel evaluation.cpp utils.h profile.h tweetprofile.cpp userprofile.cpp dateutils.cpp main.cpp)
 
 add_custom_command(TARGET gaomodel COMMAND cp ${CMAKE_SOURCE_DIR}/users_good ${CMAKE_BINARY_DIR})
 

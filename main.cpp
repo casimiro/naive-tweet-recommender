@@ -5,13 +5,12 @@
 
 #include "userprofile.h"
 #include "evaluation.h"
+#include "dateutils.h"
 
 using namespace casimiro;
 
 int main(int /*argc*/, char** /*argv*/) {
-
     auto con = std::make_shared<pqxx::connection>("postgresql://tweetsbr:zxc123@localhost:5432/tweetsbr2");
-
 
     if(!con->is_open())
     {
@@ -19,16 +18,11 @@ int main(int /*argc*/, char** /*argv*/) {
         return -1;
     }
 
-    std::tm startTraining;
-    std::tm endTraining;
-    std::tm startTest;
-    std::tm endTest;
+    std::tm startTraining = DateUtils::StringToTm("2001-01-01 00:00:00");
+    std::tm endTraining = DateUtils::StringToTm("2013-04-01 00:00:00");
+    std::tm startTest = DateUtils::StringToTm("2013-04-01 00:00:01");
+    std::tm endTest = DateUtils::StringToTm("2013-05-01 00:00:00");
     
-    strptime("2001-01-01 00:00:00", "%Y-%m-%d %H:%M", &startTraining);
-    strptime("2013-04-01 00:00:00", "%Y-%m-%d %H:%M", &endTraining);
-    strptime("2013-04-01 00:00:01", "%Y-%m-%d %H:%M", &startTest);
-    strptime("2013-05-01 00:00:00", "%Y-%m-%d %H:%M", &endTest);
-
     LongVector userIds;
 
     std::ifstream users("users_good");
