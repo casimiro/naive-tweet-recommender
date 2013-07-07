@@ -5,11 +5,13 @@
 
 namespace casimiro {
 
-Evaluation::Evaluation(LongVectorPtr _userIds,
-                       QDateTime _startTraining,
-                       QDateTime _endTraining,
-                       QDateTime _startEvaluation,
-                       QDateTime _endEvaluation):
+Evaluation::Evaluation(PqConnectionPtr _con,
+                       LongVectorPtr _userIds,
+                       std::tm _startTraining,
+                       std::tm _endTraining,
+                       std::tm _startEvaluation,
+                       std::tm _endEvaluation):
+    m_con(_con),
     m_userIds(_userIds),
     m_startTraining(_startTraining),
     m_endTraining(_endTraining),
@@ -72,18 +74,22 @@ double Evaluation::cosineSimilarity(ConceptMapPtr _profile1, ConceptMapPtr _prof
 
 LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
                                          UserProfilePtr _userProfile,
-                                         QDateTime _until)
+                                         std::tm _until)
 {
     std::map<double, std::vector<long>> aux;
     auto end = aux.end();
     
-    QDateTime from = _until.addSecs(-m_bestTimeframe[_userProfile->getUserId()]);
+    std::tm from = _until;
+    from.tm_sec -= m_bestTimeframe[_userProfile->getUserId()];
+
     double sim;
     for (auto candidate : *_candidates)
     {
-        if(candidate->getPublishDateTime() < from)
+        std::tm candidateTime = candidate->getPublishDateTime();
+
+        if(mktime(&candidateTime) < mktime(&from))
             continue;
-        if(candidate->getPublishDateTime() > _until)
+        if(mktime(&candidateTime) > mktime(&_until))
             break;
 
         sim = cosineSimilarity(_userProfile->getProfile(), candidate->getProfile());
@@ -102,16 +108,22 @@ LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
     return std::make_shared<LongVector>(rankedCandidates);
 }
 
-LongVectorPtr Evaluation::rankCandidatesByDate(TweetProfileVectorPtr _candidates, QDateTime _until)
+LongVectorPtr Evaluation::rankCandidatesByDate(TweetProfileVectorPtr _candidates, std::tm _until)
 {
     LongVector rankedCandidates;
-    QDateTime from = _until.addDays(-1);
+
+    std::tm from = _until;
+    from.tm_mday -= 1;
+
     for (auto candidate : *_candidates)
     {
-        if(candidate->getPublishDateTime() < from)
+        std::tm candidateTime = candidate->getPublishDateTime();
+
+        if(mktime(&candidateTime) < mktime(&from))
             continue;
-        if(candidate->getPublishDateTime() > _until)
+        if(mktime(&candidateTime) > mktime(&_until))
             break;
+
         rankedCandidates.push_back(candidate->getTweetId());
     }
     
@@ -130,7 +142,7 @@ void Evaluation::run()
     {
         try
         {
-            auto userProfile = UserProfile::getHashtagProfile(userId, m_startTraining, m_endTraining, true);
+            auto userProfile = UserProfile::getHashtagProfile(m_con, userId, m_startTraining, m_endTraining, true);
             auto retweets = userProfile->getRetweets(m_startEvaluation, m_endEvaluation);
             if(retweets->size() == 0)
             {

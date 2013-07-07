@@ -4,8 +4,8 @@
 #include "profile.h"
 #include <vector>
 #include <ctime>
-#include <QString>
-#include <QDateTime>
+#include <string>
+#include <ctime>
 
 namespace casimiro {
 
@@ -20,18 +20,20 @@ public:
     virtual ~TweetProfile();
 
 private:
-    TweetProfile(long _id, QDateTime _publishDate, ConceptMapPtr _profile);
+    TweetProfile(long _id, std::tm _publishDate, ConceptMapPtr _profile);
     long m_id;
-    QDateTime m_publishDateTime;
+    std::tm m_publishDateTime;
     ConceptMapPtr m_profile;
+
+    static TweetProfilePtr buildProfile(long _id, std::tm _publishDate, std::string _tweetContent, std::string _pattern);
 
 public:
     virtual ConceptMapPtr getProfile() { return m_profile; }
-    virtual QDateTime getPublishDateTime() { return m_publishDateTime; }
+    virtual std::tm getPublishDateTime() { return m_publishDateTime; }
     virtual long getTweetId() { return m_id; }
 
-    static TweetProfilePtr getBagOfWordsProfile(long _id, QDateTime _publishDate, QString _tweetContent);
-    static TweetProfilePtr getHashtagProfile(long _id, QDateTime _publishDate, QString _tweetContent);
+    static TweetProfilePtr getBagOfWordsProfile(long _id, std::tm _publishDate, std::string _tweetContent);
+    static TweetProfilePtr getHashtagProfile(long _id, std::tm _publishDate, std::string _tweetContent);
 };
 
 }

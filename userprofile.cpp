@@ -1,11 +1,14 @@
 #include "userprofile.h"
-#include <QtSql/QtSql>
 #include <iostream>
 #include <vector>
+#include <boost/regex.hpp>
+#include <algorithm>
+#include <ctime>
 
 namespace casimiro {
     
-UserProfile::UserProfile(long _userId, ConceptMapPtr _profile, QDateTime _start, QDateTime _end, ProfileType _profileType):
+UserProfile::UserProfile(PqConnectionPtr _con, long _userId, ConceptMapPtr _profile, std::tm _start, std::tm _end, ProfileType _profileType):
+    m_con(_con),
     m_userId(_userId),
     m_profile(_profile),
     m_start(_start),
@@ -18,35 +21,31 @@ UserProfile::~UserProfile()
 {
 }
 
-UserProfilePtr UserProfile::getBagOfWordsProfile(long _userId, QDateTime _start, QDateTime _end, bool _social)
+ConceptMap UserProfile::buildConceptMap(pqxx::result &_rows, std::string _pattern)
 {
     ConceptMap conceptMap;
-    QSqlQuery query;
-    if(_social)
-        query.prepare("SELECT content FROM tweet,relationship WHERE (user_id = :uid OR user_id = followed_id) AND follower_id = :uid AND creation_time >= :start AND creation_time <= :end");
-    else
-        query.prepare("SELECT content FROM tweet WHERE user_id = :uid AND creation_time >= :start AND creation_time <= :end");
 
-    query.bindValue(":uid", (qlonglong) _userId);
-    query.bindValue(":start", _start.toString("yyyy-MM-dd HH:mm:ss"));
-    query.bindValue(":end", _end.toString("yyyy-MM-dd HH:mm:ss"));
-    query.exec();
+    boost::regex rx(_pattern);
+    boost::match_results<std::string::const_iterator> match;
+    std::string::const_iterator start;
 
     float sum = 0;
-    QRegExp rx("\\w{3,}");
-    while(query.next())
+    for(auto row : _rows)
     {
-        QString content = query.value(0).toString();
-        int pos = 0;
-        while ((pos = rx.indexIn(content, pos)) != -1)
+        std::string content = row["content"].c_str();
+        start = content.cbegin();
+        while(boost::regex_search(start, content.cend(), match, rx, boost::match_default))
         {
-            std::string match = rx.cap(0).toLower().toStdString();
-            if(conceptMap.find(match) == conceptMap.end())
-                conceptMap.insert(std::make_pair(match, 0));
+            std::string found(match[0].first, match[0].second);
+            std::transform(found.begin(), found.end(), found.begin(), ::tolower);
 
-            conceptMap[match] += 1;
+            if(conceptMap.find(found) == conceptMap.end())
+                conceptMap.insert(std::make_pair(found, 0));
+            conceptMap[found] += 1;
+
             sum++;
-            pos += rx.matchedLength();
+
+            start = match[0].second;
         }
     }
 
@@ -56,49 +55,49 @@ UserProfilePtr UserProfile::getBagOfWordsProfile(long _userId, QDateTime _start,
     for(auto it = conceptMap.begin(); it != conceptMap.end(); it++)
         it->second = it->second / sum;
 
-    UserProfilePtr up = std::make_shared<UserProfile>(_userId, std::make_shared<ConceptMap>(conceptMap), _start, _end, BAG_OF_WORDS);
+    return conceptMap;
+}
+
+UserProfilePtr UserProfile::getBagOfWordsProfile(PqConnectionPtr _con, long _userId, std::tm _start, std::tm _end, bool _social)
+{
+    pqxx::nontransaction t(*_con);
+
+    char s[19];
+    char e[19];
+    strftime(s, 19, "%Y-%m-%d %H:%M", &_start);
+    strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
+
+    if(_social)
+        _con->prepare("pbow", "SELECT content FROM tweet,relationship WHERE (user_id = $1 OR user_id = followed_id) AND follower_id = $1 AND creation_time >= $2 AND creation_time <= $3");
+    else
+        _con->prepare("pbow", "SELECT content FROM tweet WHERE user_id = $1 AND creation_time >= $2 AND creation_time <= $3");
+
+    pqxx::result rows = t.prepared("pbow")(_userId)(s)(e).exec();
+
+    UserProfilePtr up = std::make_shared<UserProfile>(_con, _userId, std::make_shared<ConceptMap>(buildConceptMap(rows, "\\w{3,}")), _start, _end, BAG_OF_WORDS);
+
+    t.commit();
     return up;
 }
 
-UserProfilePtr UserProfile::getHashtagProfile(long _userId, QDateTime _start, QDateTime _end, bool _social)
+UserProfilePtr UserProfile::getHashtagProfile(PqConnectionPtr _con, long _userId, std::tm _start, std::tm _end, bool _social)
 {
-    ConceptMap conceptMap;
-    QSqlQuery query;
+    pqxx::nontransaction t(*_con);
+
+    char s[19];
+    char e[19];
+    strftime(s, 19, "%Y-%m-%d %H:%M", &_start);
+    strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
+
     if(_social)
-        query.prepare("SELECT content FROM tweet,relationship WHERE (user_id = :uid OR user_id = followed_id) AND follower_id = :uid AND creation_time >= :start AND creation_time <= :end AND content LIKE '%#%'");
+        _con->prepare("ph", "SELECT content FROM tweet,relationship WHERE (user_id = $1 OR user_id = followed_id) AND follower_id = $1 AND creation_time >= $2 AND creation_time <= $3 AND content LIKE '%#%'");
     else
-        query.prepare("SELECT content FROM tweet WHERE user_id = :uid AND creation_time >= :start AND creation_time <= :end AND content LIKE '%#%'");
+        _con->prepare("ph", "SELECT content FROM tweet WHERE user_id = $1 AND creation_time >= $2 AND creation_time <= $3 AND content LIKE '%#%'");
 
-    query.bindValue(":uid", (qlonglong) _userId);
-    query.bindValue(":start", _start.toString("yyyy-MM-dd HH:mm:ss"));
-    query.bindValue(":end", _end.toString("yyyy-MM-dd HH:mm:ss"));
-    query.exec();
-    
-    float sum = 0;
-    QRegExp rx("#\\w+");
-    while(query.next())
-    {
-        QString content = query.value(0).toString();
-        int pos = 0;
-        while ((pos = rx.indexIn(content, pos)) != -1)
-        {
-            std::string match = rx.cap(0).toLower().toStdString();
-            if(conceptMap.find(match) == conceptMap.end())
-                conceptMap.insert(std::make_pair(match, 0));
+    pqxx::result rows = t.prepared("ph")(_userId)(s)(e).exec();
+    t.commit();
 
-            conceptMap[match] += 1;
-            sum++;
-            pos += rx.matchedLength();
-        }
-    }
-
-    if(conceptMap.begin() == conceptMap.end())
-        throw EmptyProfileException();
-
-    for(auto it = conceptMap.begin(); it != conceptMap.end(); it++)
-        it->second = it->second / sum;
-    
-    UserProfilePtr up = std::make_shared<UserProfile>(_userId, std::make_shared<ConceptMap>(conceptMap), _start, _end, HASHTAG);
+    UserProfilePtr up = std::make_shared<UserProfile>(_con, _userId, std::make_shared<ConceptMap>(buildConceptMap(rows, "#\\w+")), _start, _end, HASHTAG);
     return up;
 }
 
@@ -140,84 +139,90 @@ double UserProfile::cosineSimilarity(ConceptMapPtr _profile)
     return dot / (aNorm * bNorm);
 }
 
-TweetProfileVectorPtr UserProfile::getCandidateTweets(QDateTime _start, QDateTime _end)
+TweetProfileVectorPtr UserProfile::getCandidateTweets(std::tm _start, std::tm _end)
 {
-    QSqlQuery query;
+    pqxx::nontransaction t(*m_con);
     TweetProfileVector tweetProfiles;
+    char s[19];
+    char e[19];
+    strftime(s, 19, "%Y-%m-%d %H:%M", &_start);
+    strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
 
     if(m_profileType == HASHTAG)
     {
-        query.prepare(
+        m_con->prepare("ct",
             "SELECT id, content, creation_time FROM tweet "
-            "WHERE user_id IN (select followed_id from relationship WHERE follower_id = :uid)"
-            "AND creation_time >= :start AND creation_time <= :end AND content LIKE '%#%' ORDER BY creation_time ASC"
+            "WHERE user_id IN (select followed_id from relationship WHERE follower_id = $1)"
+            "AND creation_time >= $2 AND creation_time <= $3 AND content LIKE '%#%' ORDER BY creation_time ASC"
         );
-        query.bindValue(":uid", (qlonglong) m_userId);
-        query.bindValue(":start", _start.toString("yyyy-MM-dd HH:mm:ss"));
-        query.bindValue(":end", _end.toString("yyyy-MM-dd HH:mm:ss"));
-        query.exec();
-        while(query.next())
+        pqxx::result rows = t.prepared("ct")(m_userId)(std::string(s))(std::string(e)).exec();
+        for(auto row : rows)
         {
-            long tweetId = query.value(0).toLongLong();
-            QString content = query.value(1).toString();
-            QDateTime creationTime = query.value(2).toDateTime();
+            long tweetId = row["id"].as<long>();
+            std::string content = row["content"].c_str();
+            std::tm creationTime;
+            strptime(row["creation_time"].c_str(), "%Y-%m-%d %H:%M", &creationTime);
+
             tweetProfiles.push_back(TweetProfile::getHashtagProfile(tweetId, creationTime, content));
         }
     }
     else if(m_profileType == BAG_OF_WORDS)
     {
-        query.prepare(
+        m_con->prepare("ct",
             "SELECT id, content, creation_time FROM tweet "
-            "WHERE user_id IN (select followed_id from relationship WHERE follower_id = :uid) "
-            "AND creation_time >= :start AND creation_time <= :end ORDER BY creation_time ASC"
+            "WHERE user_id IN (select followed_id from relationship WHERE follower_id = $1) "
+            "AND creation_time >= $2 AND creation_time <= $3 ORDER BY creation_time ASC"
         );
-        query.bindValue(":uid", (qlonglong) m_userId);
-        query.bindValue(":start", _start.toString("yyyy-MM-dd HH:mm:ss"));
-        query.bindValue(":end", _end.toString("yyyy-MM-dd HH:mm:ss"));
-        query.exec();
-        while(query.next())
+        pqxx::result rows = t.prepared("ct")(m_userId)(s)(e).exec();
+        for(auto row : rows)
         {
-            long tweetId = query.value(0).toLongLong();
-            QString content = query.value(1).toString();
-            QDateTime creationTime = query.value(2).toDateTime();
+            long tweetId = row["id"].as<long>();
+            std::string content = row["content"].c_str();
+            std::tm creationTime;
+            strptime(row["creation_time"].c_str(), "%Y-%m-%d %H:%M", &creationTime);
             tweetProfiles.push_back(TweetProfile::getBagOfWordsProfile(tweetId, creationTime, content));
         }
     }
+    t.commit();
     return std::make_shared<TweetProfileVector>(tweetProfiles);
 }
 
-RetweetVectorPtr UserProfile::getRetweets(QDateTime _start, QDateTime _end)
+RetweetVectorPtr UserProfile::getRetweets(std::tm _start, std::tm _end)
 {
     RetweetVector retweets;
-    QSqlQuery query;
+    pqxx::nontransaction t(*m_con);
+    char s[19];
+    char e[19];
+    strftime(s, 19, "%Y-%m-%d %H:%M", &_start);
+    strftime(e, 19, "%Y-%m-%d %H:%M", &_end);
     
     if(m_profileType == HASHTAG)
     {
-        query.prepare(
-        "SELECT creation_time, retweeted FROM tweet WHERE user_id = :uid "
-        "AND retweeted IS NOT NULL AND creation_time >= :start AND creation_time <= :end AND content LIKE '%#%' "
+        m_con->prepare("gr",
+        "SELECT creation_time, retweeted FROM tweet WHERE user_id = $1 "
+        "AND retweeted IS NOT NULL AND creation_time >= $2 AND creation_time <= $3 AND content LIKE '%#%' "
         "ORDER BY creation_time ASC"
         );
-    } else if (m_profileType == BAG_OF_WORDS)
+    }
+    else if (m_profileType == BAG_OF_WORDS)
     {
-        query.prepare(
-            "SELECT creation_time, retweeted FROM tweet WHERE user_id = :uid "
-            "AND retweeted IS NOT NULL AND creation_time >= :start AND creation_time <= :end "
+        m_con->prepare("gr",
+            "SELECT creation_time, retweeted FROM tweet WHERE user_id = $1 "
+            "AND retweeted IS NOT NULL AND creation_time >= $2 AND creation_time <= $3 "
             "ORDER BY creation_time ASC"
         );
     }
-    query.bindValue(":uid", (qlonglong) m_userId);
-    query.bindValue(":start", _start.toString("yyyy-MM-dd HH:mm:ss"));
-    query.bindValue(":end", _end.toString("yyyy-MM-dd HH:mm:ss"));
-    query.exec();
 
-    while(query.next())
+    pqxx::result rows = t.prepared("gr")(m_userId)(s)(e).exec();
+
+    for(auto row : rows)
     {
-        QDateTime creationTime = query.value(0).toDateTime();
-        long retweetId = query.value(1).toLongLong();
-        retweets.push_back(std::make_pair(creationTime, retweetId));
+        std::tm creationTime;
+        strptime(row["creation_time"].c_str(), "%Y-%m-%d %X", &creationTime);
+        retweets.push_back(std::make_pair(creationTime, row["retweeted"].as<long>()));
     }
 
+    t.commit();
     return std::make_shared<RetweetVector>(retweets);
 }
 

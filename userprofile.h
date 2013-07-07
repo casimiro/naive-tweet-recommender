@@ -1,10 +1,12 @@
 #ifndef USERPROFILE_H
 #define USERPROFILE_H
 #include <ctime>
+#include <pqxx/pqxx>
+
 #include "profile.h"
 #include "utils.h"
 #include "tweetprofile.h"
-#include <QDateTime>
+
 
 namespace casimiro {
 
@@ -16,33 +18,37 @@ enum ProfileType {
 class UserProfile;
 typedef std::shared_ptr<UserProfile> UserProfilePtr;
 
-typedef std::vector<std::pair<QDateTime, long>> RetweetVector;
+typedef std::vector<std::pair<std::tm, long>> RetweetVector;
 typedef std::shared_ptr<RetweetVector> RetweetVectorPtr;
 
 class UserProfile : public Profile
 {
 public:
-    UserProfile(long _userId, ConceptMapPtr _profile, QDateTime _start, QDateTime _end, ProfileType _profileType);
+    UserProfile(PqConnectionPtr _con, long _userId, ConceptMapPtr _profile, std::tm _start, std::tm _end, ProfileType _profileType);
     virtual ~UserProfile();
     
 private:
+    PqConnectionPtr m_con;
     long m_userId;
     ConceptMapPtr m_profile;
-    QDateTime m_start;
-    QDateTime m_end;
+    std::tm m_start;
+    std::tm m_end;
     ProfileType m_profileType;
     
     virtual double cosineSimilarity(ConceptMapPtr _profile);
+    static ConceptMap buildConceptMap(pqxx::result &_rows, std::string _pattern);
 public:
-    virtual TweetProfileVectorPtr getCandidateTweets(QDateTime _start, QDateTime _end);
-    virtual RetweetVectorPtr getRetweets(QDateTime _start, QDateTime _end);
+    virtual TweetProfileVectorPtr getCandidateTweets(std::tm _start, std::tm _end);
+    virtual RetweetVectorPtr getRetweets(std::tm _start, std::tm _end);
+
     virtual ConceptMapPtr getProfile() { return m_profile; }
     virtual long getUserId() { return m_userId; }
-    virtual QDateTime getStart() { return m_start; }
-    virtual QDateTime getEnd() { return m_end; }
+    virtual std::tm getStart() { return m_start; }
+    virtual std::tm getEnd() { return m_end; }
+
     
-    static UserProfilePtr getHashtagProfile(long _userId, QDateTime _start, QDateTime _end, bool _social);
-    static UserProfilePtr getBagOfWordsProfile(long _userId, QDateTime _start, QDateTime _end, bool _social);
+    static UserProfilePtr getHashtagProfile(PqConnectionPtr _con, long _userId, std::tm _start, std::tm _end, bool _social);
+    static UserProfilePtr getBagOfWordsProfile(PqConnectionPtr _con, long _userId, std::tm _start, std::tm _end, bool _social);
 };
 
 }
