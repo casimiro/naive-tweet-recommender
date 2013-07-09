@@ -5,18 +5,8 @@
 
 namespace casimiro {
 
-Evaluation::Evaluation(PqConnectionPtr _con,
-                       LongVectorPtr _userIds,
-                       std::tm _startTraining,
-                       std::tm _endTraining,
-                       std::tm _startEvaluation,
-                       std::tm _endEvaluation):
-    m_con(_con),
-    m_userIds(_userIds),
-    m_startTraining(_startTraining),
-    m_endTraining(_endTraining),
-    m_startEvaluation(_startEvaluation),
-    m_endEvaluation(_endEvaluation)
+Evaluation::Evaluation(PqConnectionPtr _con):
+    m_con(_con)
 {
     std::ifstream users("users_timeframe");
     std::string line;
@@ -39,11 +29,11 @@ double Evaluation::cosineSimilarity(ConceptMapPtr _profile1, ConceptMapPtr _prof
     float aNorm,bNorm,dot;
     aNorm = bNorm = dot = 0;
 
-    auto uIt = _profile1->begin();
-    auto nIt = _profile2->begin();
+    auto uIt = _profile1->cbegin();
+    auto nIt = _profile2->cbegin();
 
-    auto uEnd = _profile1->end();
-    auto nEnd = _profile2->end();
+    auto uEnd = _profile1->cend();
+    auto nEnd = _profile2->cend();
 
     int compare;
     while (uIt != uEnd && nIt != nEnd)
@@ -82,14 +72,18 @@ LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
     std::tm from = _until;
     from.tm_sec -= (int)m_bestTimeframe[_userProfile->getUserId()];
 
+    std::time_t fromT = mktime(&from);
+    std::time_t untilT = mktime(&_until);
+
     double sim;
     for (auto candidate : *_candidates)
     {
         std::tm candidateTime = candidate->getPublishDateTime();
+        std::time_t cTimeT = mktime(&candidateTime);
 
-        if(mktime(&candidateTime) < mktime(&from))
-            continue;
-        if(mktime(&candidateTime) > mktime(&_until))
+        //if(cTimeT < fromT)
+        //    continue;
+        if(cTimeT > untilT)
             break;
 
         sim = cosineSimilarity(_userProfile->getProfile(), candidate->getProfile());
@@ -101,8 +95,8 @@ LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
     }
 
     LongVector rankedCandidates;
-    for (auto pair : aux)
-        for (auto tweetId : pair.second)
+    for (auto it = aux.rbegin(); it != aux.crend(); it++)
+        for (auto tweetId : it->second)
             rankedCandidates.push_back(tweetId);
 
     return std::make_shared<LongVector>(rankedCandidates);
@@ -132,25 +126,33 @@ LongVectorPtr Evaluation::rankCandidatesByDate(TweetProfileVectorPtr _candidates
 }
 
 
-void Evaluation::run()
+EvaluationResults Evaluation::run(LongVectorPtr _userIds,
+                     std::tm _startTraining,
+                     std::tm _endTraining,
+                     std::tm _startEvaluation,
+                     std::tm _endEvaluation)
 {
     std::cout << "Start running" << std::endl;
+    EvaluationResults results;
     double meanMrr = 0;
     double userMeanMrr;
     double mrr;
-    for (auto userId : *m_userIds)
+    for (auto userId : *_userIds)
     {
+        //auto con = std::make_shared<pqxx::connection>("postgresql://tweetsbr:zxc123@localhost:5432/tweetsbr2");
         try
         {
-            auto userProfile = UserProfile::getHashtagProfile(m_con, userId, m_startTraining, m_endTraining, true);
-            auto retweets = userProfile->getRetweets(m_startEvaluation, m_endEvaluation);
+            auto userProfile = UserProfile::getHashtagProfile(m_con, userId, _startTraining, _endTraining, false);
+            auto retweets = userProfile->getRetweets(_startEvaluation, _endEvaluation);
             if(retweets->size() == 0)
             {
                 std::cout << userId << "," << -1 << std::endl;
                 continue;
             }
 
-            auto candidateTweets = userProfile->getCandidateTweets(m_startEvaluation, m_endEvaluation);
+            userProfile->loadProfile();
+
+            auto candidateTweets = userProfile->getCandidateTweets(_startEvaluation, _endEvaluation);
             userMeanMrr = 0.0;
 
             for (auto retweet : *retweets)
@@ -166,8 +168,9 @@ void Evaluation::run()
 
                 userMeanMrr += mrr;
             }
-            userMeanMrr = userMeanMrr / retweets->size();
+            userMeanMrr = userMeanMrr / (double)retweets->size();
             std::cout << userId << "," << userMeanMrr << std::endl;
+            results.setUserResult(userId, Result(userMeanMrr, 0));
             meanMrr += userMeanMrr;
         }
         catch(...)
@@ -176,8 +179,14 @@ void Evaluation::run()
             continue;
         }
     }
-    meanMrr = meanMrr / m_userIds->size();
+    meanMrr = meanMrr / _userIds->size();
+    results.setGeneralResult(Result(meanMrr,0.0));
+
     std::cout << "General Mean MRR: " << meanMrr << std::endl;
+
+    return results;
 }
+
+
 
 }

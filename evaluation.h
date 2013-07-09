@@ -7,16 +7,62 @@
 
 namespace casimiro {
 
+struct Result {
+    float mrr;
+    float sAt5;
+
+    Result():
+        mrr(0.0),
+        sAt5(0.0)
+    {
+    }
+
+    Result(float _mrr, float _sAt5):
+        mrr(_mrr),
+        sAt5(_sAt5)
+    {
+    }
+
+};
+
+typedef std::map<long, Result> ResultMap;
+
+class EvaluationResults
+{
+public:
+    EvaluationResults() {};
+    virtual ~EvaluationResults() {};
+
+    void setUserResult(long _userId, Result _userResult)
+    {
+        m_resultMap[_userId] = _userResult;
+    }
+
+    ResultMap resultMap()
+    {
+        return m_resultMap;
+    }
+
+    Result generalResult()
+    {
+        return m_generalResult;
+    }
+
+    void setGeneralResult(Result _generalResult)
+    {
+        m_generalResult = _generalResult;
+    }
+
+private:
+    ResultMap m_resultMap;
+    Result m_generalResult;
+
+};
+
 class Evaluation
 {
 public:
-    Evaluation(PqConnectionPtr _con,
-               LongVectorPtr _userIds,
-               std::tm _startTraining,
-               std::tm _endTraining,
-               std::tm _startEvaluation,
-               std::tm _endEvaluation);
-
+    Evaluation(PqConnectionPtr _con);
     virtual ~Evaluation();
 
 private:
@@ -36,7 +82,11 @@ private:
     virtual LongVectorPtr rankCandidatesByDate(TweetProfileVectorPtr _candidates, std::tm _until);
 
 public:
-    virtual void run();
+    virtual EvaluationResults run(LongVectorPtr _userIds,
+                     std::tm _startTraining,
+                     std::tm _endTraining,
+                     std::tm _startEvaluation,
+                     std::tm _endEvaluation);
 };
 
 }

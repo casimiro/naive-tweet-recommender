@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 #include <ctime>
-#include "../userprofile.h"
+#include "userprofile.h"
 #include <pqxx/pqxx>
+#include "dateutils.h"
+#include "evaluation.h"
 
 namespace casimiro {
 
@@ -25,16 +27,31 @@ protected:
             "CONSTRAINT tweet_pk PRIMARY KEY (id ))"
         );
 
+        /** training data **/
         t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (1, 1, '2012-01-01 09:05:00', null, '#USP bla bla')");
         t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (2, 1, '2012-01-01 09:10:00', null, 'bla #google bla')");
         t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (3, 1, '2012-01-01 09:15:00', null, 'bla bla #linux')");
 
         t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (7, 1, '2012-01-01 11:00:00', 4, 'RT: #UNICAMP bla bla bla')");
-        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (8, 1, '2012-01-01 11:03:00', 5, 'RT: bla bla #apple asdf')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (8, 1, '2012-01-01 11:03:00', 5, 'RT: #Unicamp bla bla #apple asdf')");
 
         t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (4, 2, '2012-01-01 09:00:00', null, '#UNICAMP bla bla bla')");
         t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (5, 2, '2012-01-01 09:03:00', null, 'bla bla #apple asdf')");
         t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (6, 2, '2012-01-01 10:15:00', null, 'bla bla kkkk #mac')");
+
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (9, 3, '2012-01-01 09:15:00', null, 'dilma na presidencia #politica')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (10, 3, '2012-01-01 09:05:00', null, 'inflacao alta #economia')");
+
+        /** test data **/
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (11, 2, '2012-01-02 09:00:00', null, 'trabalho #unicamp')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (12, 2, '2012-01-02 09:00:00', null, 'trabalho #som')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (13, 2, '2012-01-02 09:05:00', null, 'trabalhando #apple')");
+
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (14, 3, '2012-01-02 09:10:00', null, '#economia em baixa')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (15, 4, '2012-01-02 09:15:00', null, 'corinthians ganha do #palmeiras')");
+
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (16, 1, '2012-01-02 09:07:00', 11, 'trabalho #unicamp')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (17, 1, '2012-01-02 09:20:00', 14, '#economia em baixa')");
 
         t.exec("DROP TABLE IF EXISTS relationship");
         t.exec(
@@ -46,18 +63,18 @@ protected:
             ")"
         );
         t.exec("INSERT INTO relationship (follower_id, followed_id) VALUES (1, 2)");
+        t.exec("INSERT INTO relationship (follower_id, followed_id) VALUES (1, 3)");
         t.commit();
     }
 };
 
 TEST_F(ProfileTestCase, UserProfileLoading)
 {
-    std::tm start;
-    std::tm end;
-    strptime("2012-01-01 09:00:00", "%Y-%m-%d %H:%M", &start);
-    strptime("2012-01-01 10:00:00", "%Y-%m-%d %H:%M", &end);
+    std::tm start = DateUtils::StringToTm("2012-01-01 09:00:00");
+    std::tm end = DateUtils::StringToTm("2012-01-01 10:00:00");
 
     UserProfilePtr up = UserProfile::getHashtagProfile(m_con, 1, start, end, false);
+    up->loadProfile();
     
     ASSERT_NE(nullptr, up);
     ASSERT_NE(up->getProfile(), nullptr);
@@ -68,6 +85,7 @@ TEST_F(ProfileTestCase, UserProfileLoading)
     ASSERT_NEAR(0.33, up->getProfile()->at("#linux"), 0.01);
     
     up = UserProfile::getHashtagProfile(m_con, 2, start, end, false);
+    up->loadProfile();
     
     ASSERT_NE(nullptr, up);
     ASSERT_NE(up->getProfile(), nullptr);
@@ -79,28 +97,25 @@ TEST_F(ProfileTestCase, UserProfileLoading)
 
 TEST_F(ProfileTestCase, GetCandidateTweets)
 {
-    std::tm start;
-    std::tm end;
-    strptime("2012-01-01 09:00:00", "%Y-%m-%d %H:%M", &start);
-    strptime("2012-01-01 10:00:00", "%Y-%m-%d %H:%M", &end);
+    std::tm start = DateUtils::StringToTm("2012-01-02 09:00:00");
+    std::tm end = DateUtils::StringToTm("2012-01-02 10:00:00");
 
     UserProfilePtr up = UserProfile::getHashtagProfile(m_con, 1, start, end, false);
+    up->loadProfile();
     auto tweetProfiles = up->getCandidateTweets(start, end);
 
-    ASSERT_EQ(2, tweetProfiles->size());
+    ASSERT_EQ(4, tweetProfiles->size());
     ASSERT_EQ(tweetProfiles->at(0)->getProfile()->size(), 1);
     ASSERT_EQ(tweetProfiles->at(1)->getProfile()->size(), 1);
 
     ASSERT_NEAR(1.0, tweetProfiles->at(0)->getProfile()->at("#unicamp"), 0.1);
-    ASSERT_NEAR(1.0, tweetProfiles->at(1)->getProfile()->at("#apple"), 0.1);
+    ASSERT_NEAR(1.0, tweetProfiles->at(1)->getProfile()->at("#som"), 0.1);
 }
 
 TEST_F(ProfileTestCase, GetRetweets)
 {
-    std::tm start;
-    std::tm end;
-    strptime("2012-01-01 11:00:00", "%Y-%m-%d %H:%M", &start);
-    strptime("2012-01-01 12:00:00", "%Y-%m-%d %H:%M", &end);
+    std::tm start = DateUtils::StringToTm("2012-01-01 11:00:00");
+    std::tm end = DateUtils::StringToTm("2012-01-01 12:00:00");
 
     UserProfilePtr up = UserProfile::getHashtagProfile(m_con, 1, start, end, false);
     auto retweets = up->getRetweets(start, end);
@@ -111,6 +126,22 @@ TEST_F(ProfileTestCase, GetRetweets)
 
     ASSERT_EQ(5, retweets->at(1).second);
     ASSERT_EQ(3, retweets->at(1).first.tm_min);
+}
+
+TEST_F(ProfileTestCase, EvaluationRun)
+{
+    auto users = std::make_shared<LongVector>();
+    users->push_back(1);
+    Evaluation eval(m_con);
+
+    EvaluationResults result = eval.run(users,
+                                       DateUtils::StringToTm("2012-01-01 00:00:00"),
+                                       DateUtils::StringToTm("2012-01-01 11:59:59"),
+                                       DateUtils::StringToTm("2012-01-02 00:00:00"),
+                                       DateUtils::StringToTm("2012-01-02 11:59:59"));
+
+    ASSERT_NEAR(0.625, result.generalResult().mrr, 0.001);
+    ASSERT_NEAR(0.625, result.resultMap()[1].mrr, 0.001);
 }
 
 }

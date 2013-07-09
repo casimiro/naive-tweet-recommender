@@ -24,7 +24,7 @@ typedef std::shared_ptr<RetweetVector> RetweetVectorPtr;
 class UserProfile : public Profile
 {
 public:
-    UserProfile(PqConnectionPtr _con, long _userId, ConceptMapPtr _profile, std::tm _start, std::tm _end, ProfileType _profileType);
+    UserProfile(PqConnectionPtr _con, long _userId, ConceptMapPtr _profile, std::tm _start, std::tm _end, ProfileType _profileType, std::string _sqlQuery);
     virtual ~UserProfile();
     
 private:
@@ -34,12 +34,14 @@ private:
     std::tm m_start;
     std::tm m_end;
     ProfileType m_profileType;
+    std::string m_sqlQuery;
     
     virtual double cosineSimilarity(ConceptMapPtr _profile);
-    static ConceptMap buildConceptMap(pqxx::result &_rows, std::string _pattern);
+    virtual void buildConceptMap(pqxx::result &_rows, std::string _pattern);
 public:
     virtual TweetProfileVectorPtr getCandidateTweets(std::tm _start, std::tm _end);
     virtual RetweetVectorPtr getRetweets(std::tm _start, std::tm _end);
+    virtual void loadProfile();
 
     virtual ConceptMapPtr getProfile() { return m_profile; }
     virtual long getUserId() { return m_userId; }

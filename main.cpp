@@ -30,7 +30,7 @@ int main(int /*argc*/, char** /*argv*/) {
     while(std::getline(users, line))
         userIds.push_back(atol(line.c_str()));
 
-    Evaluation evaluation(con, std::make_shared<LongVector>(userIds), startTraining, endTraining, startTest, endTest);
+    Evaluation evaluation(con);
 
-    evaluation.run();
+    evaluation.run(std::make_shared<LongVector>(userIds), startTraining, endTraining, startTest, endTest);
 }

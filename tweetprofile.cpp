@@ -25,7 +25,7 @@ TweetProfilePtr TweetProfile::buildProfile(long _id, std::tm _publishDate, std::
     while(boost::regex_search(start, _tweetContent.cend(), match, rx, boost::match_default))
     {
         std::string found(match[0].first, match[0].second);
-        //std::transform(found.begin(), found.end(), found.begin(), ::tolower);
+        std::transform(found.begin(), found.end(), found.begin(), ::tolower);
 
         if(conceptMap.find(found) == conceptMap.end())
             conceptMap.insert(std::make_pair(found, 0));
