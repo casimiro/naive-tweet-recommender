@@ -4,7 +4,7 @@ project(gaomodel)
 
 find_library(pq REQUIRED)
 find_library(pqxx REQUIRED)
-find_package(Boost COMPONENTS regex REQUIRED)
+find_package(Boost COMPONENTS regex date_time REQUIRED)
 
 include_directories(${libpq_INCLUDE_DIRS} ${libpqxx_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 

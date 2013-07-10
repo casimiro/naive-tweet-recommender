@@ -1,11 +1,13 @@
 #ifndef EVALUATION_H
 #define EVALUATION_H
 
-#include <ctime>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include "utils.h"
 #include "userprofile.h"
 
 namespace casimiro {
+
+using namespace boost::posix_time;
 
 struct Result {
     float mrr;
@@ -68,25 +70,25 @@ public:
 private:
     PqConnectionPtr m_con;
     LongVectorPtr m_userIds;
-    std::tm m_startTraining;
-    std::tm m_endTraining;
-    std::tm m_startEvaluation;
-    std::tm m_endEvaluation;
+    ptime m_startTraining;
+    ptime m_endTraining;
+    ptime m_startEvaluation;
+    ptime m_endEvaluation;
     double m_mrr = 0.0;
     double m_successAtK = 0.0;
     
     std::map<int, double> m_bestTimeframe;
 
     virtual double cosineSimilarity(ConceptMapPtr _profile1, ConceptMapPtr _profile2);
-    virtual LongVectorPtr rankCandidates(TweetProfileVectorPtr _candidates, UserProfilePtr _userProfile, std::tm _until);
-    virtual LongVectorPtr rankCandidatesByDate(TweetProfileVectorPtr _candidates, std::tm _until);
+    virtual LongVectorPtr rankCandidates(TweetProfileVectorPtr _candidates, UserProfilePtr _userProfile, ptime _until);
+    virtual LongVectorPtr rankCandidatesByDate(TweetProfileVectorPtr _candidates, ptime _until);
 
 public:
     virtual EvaluationResults run(LongVectorPtr _userIds,
-                     std::tm _startTraining,
-                     std::tm _endTraining,
-                     std::tm _startEvaluation,
-                     std::tm _endEvaluation);
+                     ptime _startTraining,
+                     ptime _endTraining,
+                     ptime _startEvaluation,
+                     ptime _endEvaluation);
 };
 
 }

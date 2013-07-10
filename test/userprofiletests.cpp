@@ -1,11 +1,13 @@
 #include <gtest/gtest.h>
-#include <ctime>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include "userprofile.h"
 #include <pqxx/pqxx>
 #include "dateutils.h"
 #include "evaluation.h"
 
 namespace casimiro {
+
+using namespace boost::posix_time;
 
 class ProfileTestCase : public ::testing::Test {
 protected:
@@ -70,8 +72,8 @@ protected:
 
 TEST_F(ProfileTestCase, UserProfileLoading)
 {
-    std::tm start = DateUtils::StringToTm("2012-01-01 09:00:00");
-    std::tm end = DateUtils::StringToTm("2012-01-01 10:00:00");
+    ptime start = time_from_string("2012-01-01 09:00:00");
+    ptime end = time_from_string("2012-01-01 10:00:00");
 
     UserProfilePtr up = UserProfile::getHashtagProfile(m_con, 1, start, end, false);
     up->loadProfile();
@@ -97,8 +99,8 @@ TEST_F(ProfileTestCase, UserProfileLoading)
 
 TEST_F(ProfileTestCase, GetCandidateTweets)
 {
-    std::tm start = DateUtils::StringToTm("2012-01-02 09:00:00");
-    std::tm end = DateUtils::StringToTm("2012-01-02 10:00:00");
+    ptime start = time_from_string("2012-01-02 09:00:00");
+    ptime end = time_from_string("2012-01-02 10:00:00");
 
     UserProfilePtr up = UserProfile::getHashtagProfile(m_con, 1, start, end, false);
     up->loadProfile();
@@ -114,18 +116,18 @@ TEST_F(ProfileTestCase, GetCandidateTweets)
 
 TEST_F(ProfileTestCase, GetRetweets)
 {
-    std::tm start = DateUtils::StringToTm("2012-01-01 11:00:00");
-    std::tm end = DateUtils::StringToTm("2012-01-01 12:00:00");
+    ptime start = time_from_string("2012-01-01 11:00:00");
+    ptime end = time_from_string("2012-01-01 12:00:00");
 
     UserProfilePtr up = UserProfile::getHashtagProfile(m_con, 1, start, end, false);
     auto retweets = up->getRetweets(start, end);
 
     ASSERT_EQ(2, retweets->size());
     ASSERT_EQ(4, retweets->at(0).second);
-    ASSERT_EQ(0, retweets->at(0).first.tm_min);
+    ASSERT_EQ(0, retweets->at(0).first.time_of_day().minutes());
 
     ASSERT_EQ(5, retweets->at(1).second);
-    ASSERT_EQ(3, retweets->at(1).first.tm_min);
+    ASSERT_EQ(3, retweets->at(1).first.time_of_day().minutes());
 }
 
 TEST_F(ProfileTestCase, EvaluationRun)
@@ -135,10 +137,10 @@ TEST_F(ProfileTestCase, EvaluationRun)
     Evaluation eval(m_con);
 
     EvaluationResults result = eval.run(users,
-                                       DateUtils::StringToTm("2012-01-01 00:00:00"),
-                                       DateUtils::StringToTm("2012-01-01 11:59:59"),
-                                       DateUtils::StringToTm("2012-01-02 00:00:00"),
-                                       DateUtils::StringToTm("2012-01-02 11:59:59"));
+                                       time_from_string("2012-01-01 00:00:00"),
+                                       time_from_string("2012-01-01 11:59:59"),
+                                       time_from_string("2012-01-02 00:00:00"),
+                                       time_from_string("2012-01-02 11:59:59"));
 
     ASSERT_NEAR(0.625, result.generalResult().mrr, 0.001);
     ASSERT_NEAR(0.625, result.resultMap()[1].mrr, 0.001);

@@ -7,14 +7,14 @@ TweetProfile::~TweetProfile()
 {
 }
 
-TweetProfile::TweetProfile(long _id, std::tm _publishDate, ConceptMapPtr _profile):
+TweetProfile::TweetProfile(long _id, ptime _publishDate, ConceptMapPtr _profile):
     m_id(_id),
     m_publishDateTime(_publishDate),
     m_profile(_profile)
 {
 }
 
-TweetProfilePtr TweetProfile::buildProfile(long _id, std::tm _publishDate, std::string _tweetContent, std::string _pattern)
+TweetProfilePtr TweetProfile::buildProfile(long _id, ptime _publishDate, std::string _tweetContent, std::string _pattern)
 {
     ConceptMap conceptMap;
     boost::regex rx(_pattern);
@@ -41,13 +41,13 @@ TweetProfilePtr TweetProfile::buildProfile(long _id, std::tm _publishDate, std::
     return TweetProfilePtr(new TweetProfile(_id, _publishDate, std::make_shared<ConceptMap>(conceptMap)));
 }
 
-TweetProfilePtr TweetProfile::getBagOfWordsProfile(long _id, std::tm _publishDate, std::string _tweetContent)
+TweetProfilePtr TweetProfile::getBagOfWordsProfile(long _id, ptime _publishDate, std::string _tweetContent)
 {
     return buildProfile(_id, _publishDate, _tweetContent, "\\w{3,}");
 }
 
 
-TweetProfilePtr TweetProfile::getHashtagProfile(long _id, std::tm _publishDate, std::string _tweetContent)
+TweetProfilePtr TweetProfile::getHashtagProfile(long _id, ptime _publishDate, std::string _tweetContent)
 {
     return buildProfile(_id, _publishDate, _tweetContent, "#\\w+");
 }
