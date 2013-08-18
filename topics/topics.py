@@ -3,6 +3,7 @@ import re
 import logging
 import psycopg2
 import gensim
+from gensim import corpora
 from gensim.models.ldamodel import LdaModel
 from ptstemmer.implementations.OrengoStemmer import OrengoStemmer
 from ptstemmer.support import PTStemmerUtilities
@@ -11,11 +12,23 @@ import codecs
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 class TweetCorpus(object):
+    
+    def __init__(self, file_name, dictionary):
+        self.file_name = file_name
+        self.dictionary = dictionary
+    
     def __iter__(self):
-        for line in open('lda_data'):
-            # assume there's one document per line, tokens separated by whitespace
-            yield dictionary.doc2bow(line.split()[1:])
-            
+        for line in open(self.file_name):
+            yield self.dictionary.doc2bow(line.split()[5:])
+
+class Tweets(object):
+    
+    def __init__(self, file_name):
+        self.file_name = file_name
+    
+    def __iter__(self):
+        for line in open(self.file_name):
+            yield line.split()[5:]
             
 def save_tweets_topics(lda, dictionary, con, file_name, stemmer):
     cur = con.cursor()
@@ -48,14 +61,43 @@ def save_tweets_topics(lda, dictionary, con, file_name, stemmer):
             bulk = []
             run += 1
 
+def create_infra(file_name):
+    tweets = Tweets(file_name)
+    dictionary = corpora.Dictionary(tweets)
+    once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq == 1]
+    dictionary.filter_tokens(once_ids)
+    dictionary.compactify()
+    dictionary.save_as_text('dictionary')
+    
+    corpus = TweetCorpus(file_name, dictionary)
+    corpora.MmCorpus.serialize('tweets_corpus.mm', corpus)
+    
+    print "I've done my job!"
+    
+def estimate_lda():
+    id2word = gensim.corpora.Dictionary.load_from_text('dictionary')
+    mm = gensim.corpora.MmCorpus('tweets_corpus.mm')
+    
+    print "About to run LDA estimation"
+    lda = gensim.models.ldamodel.LdaModel(corpus=mm, id2word=id2word, num_topics=100, update_every=1, chunksize=50000, passes=1)
+    lda.save("tweets_lda")
+    print "I've done my job!"
+
 if __name__ == '__main__':
-    con = psycopg2.connect("host=192.168.25.2 dbname='tweetsbr2' user='tweetsbr' password='zxc123'")
     
-    id2word = gensim.corpora.Dictionary.load_from_text('tweets_dict.txt')
-    lda = LdaModel.load('lda')
-    
-    stemmer = OrengoStemmer()
-    stemmer.enableCaching(1000)
-    stemmer.ignore(PTStemmerUtilities.fileToSet("namedEntitiesU.txt"))
-    
-    save_tweets_topics(lda, id2word, con, sys.argv[1], stemmer)
+    if sys.argv[1] == 'topics':
+        con = psycopg2.connect("host=192.168.25.2 dbname='tweetsbr2' user='tweetsbr' password='zxc123'")
+        
+        id2word = gensim.corpora.Dictionary.load_from_text('tweets_dict.txt')
+        lda = LdaModel.load('lda')
+        
+        stemmer = OrengoStemmer()
+        stemmer.enableCaching(1000)
+        stemmer.ignore(PTStemmerUtilities.fileToSet("namedEntitiesU.txt"))
+        
+        save_tweets_topics(lda, id2word, con, sys.argv[1], stemmer)
+    elif sys.argv[1] == 'infra':
+        create_infra(sys.argv[2])
+        
+    elif sys.argv[1] == 'lda':
+        estimate_lda()
