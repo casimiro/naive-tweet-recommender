@@ -3,7 +3,7 @@
 #include <vector>
 #include <boost/regex.hpp>
 #include <algorithm>
-#include <ctime>
+#include <sstream>
 #include "dateutils.h"
 
 namespace casimiro {
@@ -41,9 +41,18 @@ void UserProfile::buildConceptMap(pqxx::result &_rows, std::string _pattern)
 
             if(m_profile->find(found) == m_profile->end())
                 m_profile->insert(std::make_pair(found, 0));
-            (*m_profile)[found] += 1;
 
-            sum++;
+            if(row["user_id"].as<long>() == m_userId)
+            {
+                (*m_profile)[found] += 100;
+                sum += 100;
+            }
+            else
+            {
+                (*m_profile)[found] += 1;
+                sum++;
+            }
+
 
             start = match[0].second;
         }
@@ -59,8 +68,7 @@ void UserProfile::buildConceptMap(pqxx::result &_rows, std::string _pattern)
 void UserProfile::loadProfile()
 {
     pqxx::nontransaction t(*m_con);
-    m_con->prepare("pl", m_sqlQuery);
-    pqxx::result rows = t.prepared("pl")(m_userId)(to_iso_extended_string(m_start))(to_iso_extended_string(m_end)).exec();
+    pqxx::result rows = t.exec(m_sqlQuery);
 
     if(m_profileType == BAG_OF_WORDS)
         buildConceptMap(rows, "\\w{3,}");
@@ -72,9 +80,17 @@ void UserProfile::loadProfile()
 
 UserProfilePtr UserProfile::getBagOfWordsProfile(PqConnectionPtr _con, long _userId, ptime _start, ptime _end, bool _social)
 {
-    std::string query = "SELECT content FROM tweet WHERE user_id = $1 AND creation_time >= $2 AND creation_time <= $3";
+    std::stringstream ss;
+    ss << _userId;
+    std::string sUserId = ss.str();
+
+    std::string query = "SELECT content, user_id FROM tweet WHERE user_id = "+sUserId+" "
+            "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"'";
     if(_social)
-        query = "SELECT content FROM tweet,relationship WHERE (user_id = $1 OR user_id = followed_id) AND follower_id = $1 AND creation_time >= $2 AND creation_time <= $3";
+    {
+        query = "SELECT content, user_id FROM tweet WHERE user_id in (SELECT followed_id FROM relationship WHERE follower_id="+sUserId+" UNION SELECT 1 FROM twitter_user) "
+                "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"'";
+    }
 
     UserProfilePtr up = std::make_shared<UserProfile>(_con, _userId, std::make_shared<ConceptMap>(), _start, _end, BAG_OF_WORDS, query);
     return up;
@@ -82,9 +98,17 @@ UserProfilePtr UserProfile::getBagOfWordsProfile(PqConnectionPtr _con, long _use
 
 UserProfilePtr UserProfile::getHashtagProfile(PqConnectionPtr _con, long _userId, ptime _start, ptime _end, bool _social)
 {
-    std::string query = "SELECT content FROM tweet WHERE user_id = $1 AND creation_time >= $2 AND creation_time <= $3 AND content LIKE '%#%'";
+    std::stringstream ss;
+    ss << _userId;
+    std::string sUserId = ss.str();
+
+    std::string query = "SELECT content, user_id FROM tweet WHERE user_id = "+sUserId+" "
+            "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"' AND content LIKE '%#%'";
     if(_social)
-        query = "SELECT content FROM tweet,relationship WHERE (user_id = $1 OR user_id = followed_id) AND follower_id = $1 AND creation_time >= $2 AND creation_time <= $3 AND content LIKE '%#%'";
+    {
+        query = "SELECT content, user_id FROM tweet WHERE user_id in (SELECT followed_id FROM relationship WHERE follower_id="+sUserId+" UNION SELECT 1 FROM twitter_user) "
+                "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"' AND content LIKE '%#%'";
+    }
 
     UserProfilePtr up = std::make_shared<UserProfile>(_con, _userId, std::make_shared<ConceptMap>(), _start, _end, HASHTAG, query);
     return up;
@@ -132,15 +156,17 @@ TweetProfileVectorPtr UserProfile::getCandidateTweets(ptime _start, ptime _end)
 {
     pqxx::nontransaction t(*m_con);
     TweetProfileVector tweetProfiles;
+    std::stringstream ss;
+    ss << m_userId;
+    std::string sUserId = ss.str();
 
     if(m_profileType == HASHTAG)
     {
-        m_con->prepare("ct",
+        std::string query =
             "SELECT id, content, creation_time FROM tweet,relationship "
-            "WHERE user_id = followed_id AND follower_id = $1 "
-            "AND creation_time >= $2 AND creation_time <= $3 AND content LIKE '%#%' ORDER BY creation_time ASC"
-        );
-        pqxx::result rows = t.prepared("ct")(m_userId)(to_iso_extended_string(_start))(to_iso_extended_string(_end)).exec();
+            "WHERE user_id = followed_id AND follower_id = "+sUserId+" "
+            "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"' AND content LIKE '%#%' ORDER BY creation_time ASC";
+        pqxx::result rows = t.exec(query);
         for(auto row : rows)
         {
             long tweetId = row["id"].as<long>();
@@ -151,12 +177,11 @@ TweetProfileVectorPtr UserProfile::getCandidateTweets(ptime _start, ptime _end)
     }
     else if(m_profileType == BAG_OF_WORDS)
     {
-        m_con->prepare("ct",
+        std::string query =
             "SELECT id, content, creation_time FROM tweet,relationship "
-            "WHERE user_id = followed_id AND follower_id = $1 "
-            "AND creation_time >= $2 AND creation_time <= $3 ORDER BY creation_time ASC"
-        );
-        pqxx::result rows = t.prepared("ct")(m_userId)(to_iso_extended_string(_start))(to_iso_extended_string(_end)).exec();
+            "WHERE user_id = followed_id AND follower_id = "+sUserId+" "
+            "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"' ORDER BY creation_time ASC";
+        pqxx::result rows = t.exec(query);
         for(auto row : rows)
         {
             long tweetId = row["id"].as<long>();

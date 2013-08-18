@@ -20,7 +20,10 @@ endif()
 
 add_executable(gaomodel evaluation.cpp utils.h profile.h tweetprofile.cpp userprofile.cpp dateutils.cpp main.cpp)
 
+
 add_custom_command(TARGET gaomodel COMMAND cp ${CMAKE_SOURCE_DIR}/users_good ${CMAKE_BINARY_DIR})
 
-target_link_libraries(gaomodel ${QT_LIBRARIES} ${Boost_LIBRARIES} pq pqxx)
+target_link_libraries(gaomodel ${Boost_LIBRARIES} pq pqxx)
+
 add_subdirectory(test)
+add_subdirectory(stemmer)

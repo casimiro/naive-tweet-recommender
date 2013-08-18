@@ -70,15 +70,14 @@ LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
     auto end = aux.end();
     
     ptime from = _until- seconds((int)m_bestTimeframe[_userProfile->getUserId()]);
-
-
+    //ptime from = _until - minutes(60*24*5);
     double sim;
     for (auto candidate : *_candidates)
     {
         ptime candidateTime = candidate->getPublishDateTime();
 
-        //if(candidateTime < from)
-        //    continue;
+        if(candidateTime < from)
+            continue;
         if(candidateTime > _until)
             break;
 
@@ -98,11 +97,12 @@ LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
     return std::make_shared<LongVector>(rankedCandidates);
 }
 
-LongVectorPtr Evaluation::rankCandidatesByDate(TweetProfileVectorPtr _candidates, ptime _until)
+LongVectorPtr Evaluation::rankCandidatesByDate(TweetProfileVectorPtr _candidates, UserProfilePtr _userProfile, ptime _until)
 {
     LongVector rankedCandidates;
 
-    ptime from = _until - seconds(3600*24);
+    ptime from = _until- seconds((int)m_bestTimeframe[_userProfile->getUserId()]);
+    //ptime from = _until - minutes(60*24*5);
 
     for (auto candidate : *_candidates)
     {
@@ -116,7 +116,8 @@ LongVectorPtr Evaluation::rankCandidatesByDate(TweetProfileVectorPtr _candidates
         rankedCandidates.push_back(candidate->getTweetId());
     }
     
-    std::reverse(rankedCandidates.begin(), rankedCandidates.end());
+    //std::reverse(rankedCandidates.begin(), rankedCandidates.end());
+    std::random_shuffle(rankedCandidates.begin(), rankedCandidates.end());
     return std::make_shared<LongVector>(rankedCandidates);
 }
 
@@ -129,56 +130,79 @@ EvaluationResults Evaluation::run(LongVectorPtr _userIds,
 {
     std::cout << "Start running" << std::endl;
     EvaluationResults results;
+
+    ptime startCandidates = _startEvaluation - minutes(60*24*5);
+
     double meanMrr = 0;
+    double sAt5 = 0;
+    double sAt10 = 0;
+
     double userMeanMrr;
-    double mrr;
+    double usersAt5;
+    double usersAt10;
     for (auto userId : *_userIds)
     {
-        //auto con = std::make_shared<pqxx::connection>("postgresql://tweetsbr:zxc123@localhost:5432/tweetsbr2");
+        auto con = std::make_shared<pqxx::connection>("postgresql://tweetsbr:zxc123@localhost:5432/tweetsbr2");
         try
         {
-            auto userProfile = UserProfile::getHashtagProfile(m_con, userId, _startTraining, _endTraining, false);
+            auto userProfile = UserProfile::getHashtagProfile(con, userId, _startTraining, _endTraining, false);
             auto retweets = userProfile->getRetweets(_startEvaluation, _endEvaluation);
             if(retweets->size() == 0)
             {
-                std::cout << userId << "," << -1 << std::endl;
+                std::cout << userId << "," << -1 << "," << -1 << "," << -1 << std::endl;
                 continue;
             }
 
-            userProfile->loadProfile();
+            //userProfile->loadProfile();
 
-            auto candidateTweets = userProfile->getCandidateTweets(_startEvaluation, _endEvaluation);
+            auto candidateTweets = userProfile->getCandidateTweets(startCandidates, _endEvaluation);
             userMeanMrr = 0.0;
+            usersAt5 = 0.0;
+            usersAt10 = 0.0;
 
             for (auto retweet : *retweets)
             {
-                auto ranked = rankCandidates(candidateTweets, userProfile, retweet.first);
+                auto ranked = rankCandidatesByDate(candidateTweets, userProfile, retweet.first);
                 auto found = std::find(ranked->begin(), ranked->end(), retweet.second);
                 double index = (double) std::distance(ranked->begin(), found);
 
-                if(index == ranked->size())
-                    mrr = 0.0;
-                else
-                    mrr = 1.0 / (index + 1.0);
+                if(index < ranked->size())
+                {
+                    userMeanMrr += 1.0 / (index + 1.0);
 
-                userMeanMrr += mrr;
+                    if(index < 10)
+                        usersAt10 += 1;
+
+                    if(index < 5)
+                        usersAt5 += 1;
+                }
+
             }
             userMeanMrr = userMeanMrr / (double)retweets->size();
-            std::cout << userId << "," << userMeanMrr << std::endl;
-            results.setUserResult(userId, Result(userMeanMrr, 0));
+            usersAt5 = usersAt5 / (double)retweets->size();
+            usersAt10 = usersAt10 / (double)retweets->size();
+
+            std::cout << userId << "," << userMeanMrr << "," << usersAt5 << "," << usersAt10 << std::endl;
+            results.setUserResult(userId, Result(userMeanMrr, usersAt5, usersAt10));
             meanMrr += userMeanMrr;
+            sAt5 += usersAt5;
+            sAt10 += usersAt10;
         }
         catch(...)
         {
-            std::cout << userId << "," << -2 << std::endl;
+            std::cout << userId << "," << -2 << "," << -2 << "," << -2 << std::endl;
             continue;
         }
     }
-    meanMrr = meanMrr / _userIds->size();
-    results.setGeneralResult(Result(meanMrr,0.0));
+    meanMrr = meanMrr / (double)_userIds->size();
+    sAt5 = sAt5 / (double)_userIds->size();
+    sAt10 = sAt10 / (double)_userIds->size();
+
+    results.setGeneralResult(Result(meanMrr, sAt5, sAt10));
 
     std::cout << "General Mean MRR: " << meanMrr << std::endl;
-
+    std::cout << "General Mean sAt5: " << sAt5 << std::endl;
+    std::cout << "General Mean sAt10: " << sAt10 << std::endl;
     return results;
 }
 

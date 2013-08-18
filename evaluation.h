@@ -12,16 +12,19 @@ using namespace boost::posix_time;
 struct Result {
     float mrr;
     float sAt5;
+    float sAt10;
 
     Result():
         mrr(0.0),
-        sAt5(0.0)
+        sAt5(0.0),
+        sAt10(0.0)
     {
     }
 
-    Result(float _mrr, float _sAt5):
+    Result(float _mrr, float _sAt5, float _sAt10):
         mrr(_mrr),
-        sAt5(_sAt5)
+        sAt5(_sAt5),
+        sAt10(_sAt10)
     {
     }
 
@@ -81,7 +84,7 @@ private:
 
     virtual double cosineSimilarity(ConceptMapPtr _profile1, ConceptMapPtr _profile2);
     virtual LongVectorPtr rankCandidates(TweetProfileVectorPtr _candidates, UserProfilePtr _userProfile, ptime _until);
-    virtual LongVectorPtr rankCandidatesByDate(TweetProfileVectorPtr _candidates, ptime _until);
+    virtual LongVectorPtr rankCandidatesByDate(TweetProfileVectorPtr _candidates, UserProfilePtr _userProfile, ptime _until);
 
 public:
     virtual EvaluationResults run(LongVectorPtr _userIds,

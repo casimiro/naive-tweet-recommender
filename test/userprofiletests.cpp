@@ -95,6 +95,27 @@ TEST_F(ProfileTestCase, UserProfileLoading)
     ASSERT_EQ(2, up->getProfile()->size());
     ASSERT_NEAR(0.50, up->getProfile()->at("#unicamp"), 0.01);
     ASSERT_NEAR(0.50, up->getProfile()->at("#apple"), 0.01);
+
+}
+
+TEST_F(ProfileTestCase, UserProfileSocialLoading)
+{
+    ptime start = time_from_string("2012-01-01 09:00:00");
+    ptime end = time_from_string("2012-01-01 10:00:00");
+
+    UserProfilePtr up = UserProfile::getHashtagProfile(m_con, 1, start, end, true);
+    up->loadProfile();
+    ASSERT_NE(nullptr, up);
+    ASSERT_NE(up->getProfile(), nullptr);
+    ASSERT_EQ(up->getUserId(), 1);
+    ASSERT_EQ(7, up->getProfile()->size());
+    ASSERT_NEAR(0.20, up->getProfile()->at("#usp"), 0.01);
+    ASSERT_NEAR(0.20, up->getProfile()->at("#google"), 0.01);
+    ASSERT_NEAR(0.20, up->getProfile()->at("#linux"), 0.01);
+    ASSERT_NEAR(0.10, up->getProfile()->at("#unicamp"), 0.01);
+    ASSERT_NEAR(0.10, up->getProfile()->at("#apple"), 0.01);
+    ASSERT_NEAR(0.10, up->getProfile()->at("#politica"), 0.01);
+    ASSERT_NEAR(0.10, up->getProfile()->at("#economia"), 0.01);
 }
 
 TEST_F(ProfileTestCase, GetCandidateTweets)

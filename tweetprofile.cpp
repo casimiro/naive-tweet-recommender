@@ -35,8 +35,8 @@ TweetProfilePtr TweetProfile::buildProfile(long _id, ptime _publishDate, std::st
         start = match[0].second;
     }
 
-    //for(auto it = conceptMap.begin(); it != conceptMap.end(); it++)
-    //    it->second = it->second / sum;
+    for(auto it = conceptMap.begin(); it != conceptMap.end(); it++)
+        it->second = it->second / sum;
 
     return TweetProfilePtr(new TweetProfile(_id, _publishDate, std::make_shared<ConceptMap>(conceptMap)));
 }
