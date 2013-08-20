@@ -153,7 +153,7 @@ EvaluationResults Evaluation::run(LongVectorPtr _userIds,
                 continue;
             }
 
-            //userProfile->loadProfile();
+            userProfile->loadProfile();
 
             auto candidateTweets = userProfile->getCandidateTweets(startCandidates, _endEvaluation);
             userMeanMrr = 0.0;

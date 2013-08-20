@@ -152,7 +152,7 @@ double UserProfile::cosineSimilarity(ConceptMapPtr _profile)
     return dot / (aNorm * bNorm);
 }
 
-TweetProfileVectorPtr UserProfile::getCandidateTweets(ptime _start, ptime _end)
+TweetProfileVectorPtr UserProfile::getCandidateTweets(const ptime &_start, const ptime &_end)
 {
     pqxx::nontransaction t(*m_con);
     TweetProfileVector tweetProfiles;
@@ -194,7 +194,7 @@ TweetProfileVectorPtr UserProfile::getCandidateTweets(ptime _start, ptime _end)
     return std::make_shared<TweetProfileVector>(tweetProfiles);
 }
 
-RetweetVectorPtr UserProfile::getRetweets(ptime _start, ptime _end)
+RetweetVectorPtr UserProfile::getRetweets(const ptime &_start, const ptime &_end)
 {
     RetweetVector retweets;
     pqxx::nontransaction t(*m_con);

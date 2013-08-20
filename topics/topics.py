@@ -30,17 +30,14 @@ class Tweets(object):
         for line in open(self.file_name):
             yield line.split()[5:]
             
-def save_tweets_topics(lda, dictionary, con, file_name, stemmer):
+def save_tweets_topics(lda, dictionary, con, file_name):
     cur = con.cursor()
         
-    rx = re.compile(r"\w{3,}", re.UNICODE)
     bulk = []
     run = 0
-    for line in codecs.open(file_name, "r", "utf-8", buffering=8092000):
-        vals = line.split(u'\t')
-        finds = rx.findall(vals[1])
-        stems = [stemmer.getWordStem(x) for x in finds]
-        words = stems
+    for line in open(file_name, "r", buffering=8092000):
+        vals = line.split()
+        words = vals[5:]
         bow = dictionary.doc2bow(words)
         topics = lda[bow]
         data = ""
@@ -52,8 +49,8 @@ def save_tweets_topics(lda, dictionary, con, file_name, stemmer):
         if retweeted == "\N":
             retweeted = 0
             
-        bulk.append((vals[0], vals[2], vals[3], retweeted, data))
-        if len(bulk) >= 500000:
+        bulk.append((vals[0], vals[1] + ' ' + vals[2], vals[3], retweeted, data))
+        if len(bulk) >= 50000:
             logging.info("Persisting bulk %s of size %s" % (run, len(bulk)))
             cur.executemany("INSERT INTO tweet_topics (id, creation_time, user_id, retweeted, topics) VALUES (%s,%s,%s,%s,%s) ", bulk)
             con.commit()
@@ -64,6 +61,7 @@ def save_tweets_topics(lda, dictionary, con, file_name, stemmer):
 def create_infra(file_name):
     tweets = Tweets(file_name)
     dictionary = corpora.Dictionary(tweets)
+    stop_ids = [dictionary.token2id[stopword] for stopword in open("stopwords.txt") if stopword.strip() in dictionary.token2id]
     once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq == 1]
     dictionary.filter_tokens(once_ids)
     dictionary.compactify()
@@ -88,14 +86,10 @@ if __name__ == '__main__':
     if sys.argv[1] == 'topics':
         con = psycopg2.connect("host=192.168.25.2 dbname='tweetsbr2' user='tweetsbr' password='zxc123'")
         
-        id2word = gensim.corpora.Dictionary.load_from_text('tweets_dict.txt')
-        lda = LdaModel.load('lda')
+        id2word = gensim.corpora.Dictionary.load_from_text('dictionary')
+        lda = LdaModel.load('tweets_lda')
         
-        stemmer = OrengoStemmer()
-        stemmer.enableCaching(1000)
-        stemmer.ignore(PTStemmerUtilities.fileToSet("namedEntitiesU.txt"))
-        
-        save_tweets_topics(lda, id2word, con, sys.argv[1], stemmer)
+        save_tweets_topics(lda, id2word, con, sys.argv[2])
     elif sys.argv[1] == 'infra':
         create_infra(sys.argv[2])
         

@@ -11,6 +11,8 @@
 #include <iterator>
 #include <vector>
 #include <boost/algorithm/string.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+
 #include <iconv.h>
 
 extern "C" {
@@ -18,6 +20,8 @@ extern "C" {
 }
 
 typedef std::unordered_set<std::string> StringSet;
+
+using namespace boost::posix_time;
 
 int RUN_SIZE = 500000;
 
@@ -64,6 +68,8 @@ int main(int /*argc*/, char** /*argv*/) {
     loadVocabulary(vocabulary);
     
     rslpLoadStemmer(&rslpMainStruct, "rslpconfig.txt");
+
+    ptime limit = time_from_string("2013-04-01 00:00:00");
     
     std::cout << "Let the games begin!" << std::endl;
     for(std::string line; getline(infile, line);)
@@ -71,6 +77,10 @@ int main(int /*argc*/, char** /*argv*/) {
         words.clear();
         cols.clear();
         boost::split(cols, line, boost::is_any_of("\t"));
+
+        ptime creation = time_from_string(cols.at(2));
+        if(creation > limit)
+            continue;
 
         std::string content = cols.at(1);
         start = content.cbegin();
@@ -110,7 +120,7 @@ int main(int /*argc*/, char** /*argv*/) {
         ssData << cols.at(0) << " ";
         ssData << cols.at(2) << " ";
         ssData << cols.at(3) << " ";
-        if(cols.at(4) != std::string("\N"))
+        if(cols.at(4) != std::string("\\N"))
             ssData << cols.at(4) << " ";
         else
             ssData << "0 ";

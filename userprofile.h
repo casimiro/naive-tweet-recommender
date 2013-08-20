@@ -40,9 +40,10 @@ private:
     
     virtual double cosineSimilarity(ConceptMapPtr _profile);
     virtual void buildConceptMap(pqxx::result &_rows, std::string _pattern);
+
 public:
-    virtual TweetProfileVectorPtr getCandidateTweets(ptime _start, ptime _end);
-    virtual RetweetVectorPtr getRetweets(ptime _start, ptime _end);
+    virtual TweetProfileVectorPtr getCandidateTweets(const ptime &_start, const ptime &_end);
+    virtual RetweetVectorPtr getRetweets(const ptime &_start, const ptime &_end);
     virtual void loadProfile();
 
     virtual ConceptMapPtr getProfile() { return m_profile; }
