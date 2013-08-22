@@ -161,7 +161,8 @@ TEST_F(ProfileTestCase, EvaluationRun)
                                        time_from_string("2012-01-01 00:00:00"),
                                        time_from_string("2012-01-01 11:59:59"),
                                        time_from_string("2012-01-02 00:00:00"),
-                                       time_from_string("2012-01-02 11:59:59"));
+                                       time_from_string("2012-01-02 11:59:59"),
+                                       HASHTAG_EVAL);
 
     ASSERT_NEAR(0.625, result.generalResult().mrr, 0.001);
     ASSERT_NEAR(0.625, result.resultMap()[1].mrr, 0.001);

@@ -34,5 +34,5 @@ int main(int /*argc*/, char** /*argv*/) {
 
     Evaluation evaluation(con);
 
-    evaluation.run(std::make_shared<LongVector>(userIds), startTraining, endTraining, startTest, endTest);
+    evaluation.run(std::make_shared<LongVector>(userIds), startTraining, endTraining, startTest, endTest, HASHTAG_EVAL);
 }

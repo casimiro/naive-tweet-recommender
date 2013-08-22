@@ -14,7 +14,8 @@ using namespace boost::posix_time;
 
 enum ProfileType {
     HASHTAG,
-    BAG_OF_WORDS
+    BAG_OF_WORDS,
+    TOPICS
 };
 
 class UserProfile;
@@ -38,13 +39,14 @@ private:
     ProfileType m_profileType;
     std::string m_sqlQuery;
     
-    virtual double cosineSimilarity(ConceptMapPtr _profile);
     virtual void buildConceptMap(pqxx::result &_rows, std::string _pattern);
 
 public:
     virtual TweetProfileVectorPtr getCandidateTweets(const ptime &_start, const ptime &_end);
     virtual RetweetVectorPtr getRetweets(const ptime &_start, const ptime &_end);
     virtual void loadProfile();
+    
+    virtual double cosineSimilarity(ConceptMapPtr _profile);
 
     virtual ConceptMapPtr getProfile() { return m_profile; }
     virtual long getUserId() { return m_userId; }

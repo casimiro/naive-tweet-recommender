@@ -44,8 +44,8 @@ void UserProfile::buildConceptMap(pqxx::result &_rows, std::string _pattern)
 
             if(row["user_id"].as<long>() == m_userId)
             {
-                (*m_profile)[found] += 100;
-                sum += 100;
+                (*m_profile)[found] += 2;
+                sum += 2;
             }
             else
             {
@@ -88,7 +88,7 @@ UserProfilePtr UserProfile::getBagOfWordsProfile(PqConnectionPtr _con, long _use
             "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"'";
     if(_social)
     {
-        query = "SELECT content, user_id FROM tweet WHERE user_id in (SELECT followed_id FROM relationship WHERE follower_id="+sUserId+" UNION SELECT 1 FROM twitter_user) "
+        query = "SELECT content, user_id FROM tweet WHERE user_id in ((SELECT followed_id FROM relationship WHERE follower_id="+sUserId+") UNION (SELECT GREATEST(0,"+sUserId+"))) "
                 "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"'";
     }
 
@@ -106,7 +106,7 @@ UserProfilePtr UserProfile::getHashtagProfile(PqConnectionPtr _con, long _userId
             "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"' AND content LIKE '%#%'";
     if(_social)
     {
-        query = "SELECT content, user_id FROM tweet WHERE user_id in (SELECT followed_id FROM relationship WHERE follower_id="+sUserId+" UNION SELECT 1 FROM twitter_user) "
+        query = "SELECT content, user_id FROM tweet WHERE user_id in ((SELECT followed_id FROM relationship WHERE follower_id="+sUserId+") UNION (SELECT GREATEST(0,"+sUserId+"))) "
                 "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"' AND content LIKE '%#%'";
     }
 

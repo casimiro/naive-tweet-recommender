@@ -101,7 +101,6 @@ int main(int /*argc*/, char** /*argv*/) {
                 
                 if (iconv(cd, &buffPtr, &buffSize, &convPtr, &convSize) == (size_t) -1)
                 {
-                    std::cout << "Fodeu! " << found << std::endl;
                     return 1;
                 }
                 

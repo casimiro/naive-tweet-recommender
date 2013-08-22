@@ -9,6 +9,12 @@ namespace casimiro {
 
 using namespace boost::posix_time;
 
+enum EvaluationType {
+    RECENCY_EVAL,
+    HASHTAG_EVAL,
+    TOPIC_EVAL
+};
+
 struct Result {
     float mrr;
     float sAt5;
@@ -82,7 +88,6 @@ private:
     
     std::map<int, double> m_bestTimeframe;
 
-    virtual double cosineSimilarity(ConceptMapPtr _profile1, ConceptMapPtr _profile2);
     virtual LongVectorPtr rankCandidates(TweetProfileVectorPtr _candidates, UserProfilePtr _userProfile, ptime _until);
     virtual LongVectorPtr rankCandidatesByDate(TweetProfileVectorPtr _candidates, UserProfilePtr _userProfile, ptime _until);
 
@@ -91,7 +96,8 @@ public:
                      ptime _startTraining,
                      ptime _endTraining,
                      ptime _startEvaluation,
-                     ptime _endEvaluation);
+                     ptime _endEvaluation,
+                     EvaluationType _evaluationType);
 };
 
 }

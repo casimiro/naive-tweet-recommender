@@ -24,44 +24,6 @@ Evaluation::~Evaluation()
 {
 }
 
-double Evaluation::cosineSimilarity(ConceptMapPtr _profile1, ConceptMapPtr _profile2)
-{
-    float aNorm,bNorm,dot;
-    aNorm = bNorm = dot = 0;
-
-    auto uIt = _profile1->cbegin();
-    auto nIt = _profile2->cbegin();
-
-    auto uEnd = _profile1->cend();
-    auto nEnd = _profile2->cend();
-
-    int compare;
-    while (uIt != uEnd && nIt != nEnd)
-    {
-        compare = uIt->first.compare(nIt->first);
-        if(compare == 0)
-        {
-            dot += uIt->second * nIt->second;
-            uIt++;
-            nIt++;
-        }
-        else if(compare < 0)
-            uIt++;
-        else if(compare > 0)
-            nIt++;
-    }
-
-    for (uIt = _profile1->begin(); uIt != uEnd; uIt++)
-        aNorm += pow(uIt->second, 2);
-    aNorm = sqrt(aNorm);
-
-    for (nIt = _profile2->begin(); nIt != nEnd; nIt++)
-        bNorm += pow(nIt->second, 2);
-    bNorm = sqrt(bNorm);
-
-    return dot / (aNorm * bNorm);
-}
-
 LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
                                          UserProfilePtr _userProfile,
                                          ptime _until)
@@ -69,8 +31,8 @@ LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
     std::map<double, std::vector<long>> aux;
     auto end = aux.end();
     
-    ptime from = _until- seconds((int)m_bestTimeframe[_userProfile->getUserId()]);
-    //ptime from = _until - minutes(60*24*5);
+    //ptime from = _until- seconds((int)m_bestTimeframe[_userProfile->getUserId()]);
+    ptime from = _until - minutes(60*24*5);
     double sim;
     for (auto candidate : *_candidates)
     {
@@ -81,7 +43,7 @@ LongVectorPtr Evaluation::rankCandidates(TweetProfileVectorPtr _candidates,
         if(candidateTime > _until)
             break;
 
-        sim = cosineSimilarity(_userProfile->getProfile(), candidate->getProfile());
+        sim = _userProfile->cosineSimilarity(candidate->getProfile());
 
         if(aux.find(sim) == end)
             aux[sim] = std::vector<long>();
@@ -101,8 +63,8 @@ LongVectorPtr Evaluation::rankCandidatesByDate(TweetProfileVectorPtr _candidates
 {
     LongVector rankedCandidates;
 
-    ptime from = _until- seconds((int)m_bestTimeframe[_userProfile->getUserId()]);
-    //ptime from = _until - minutes(60*24*5);
+    //ptime from = _until- seconds((int)m_bestTimeframe[_userProfile->getUserId()]);
+    ptime from = _until - minutes(60*24*5);
 
     for (auto candidate : *_candidates)
     {
@@ -116,8 +78,8 @@ LongVectorPtr Evaluation::rankCandidatesByDate(TweetProfileVectorPtr _candidates
         rankedCandidates.push_back(candidate->getTweetId());
     }
     
-    //std::reverse(rankedCandidates.begin(), rankedCandidates.end());
-    std::random_shuffle(rankedCandidates.begin(), rankedCandidates.end());
+    std::reverse(rankedCandidates.begin(), rankedCandidates.end());
+    //std::random_shuffle(rankedCandidates.begin(), rankedCandidates.end());
     return std::make_shared<LongVector>(rankedCandidates);
 }
 
@@ -126,12 +88,14 @@ EvaluationResults Evaluation::run(LongVectorPtr _userIds,
                      ptime _startTraining,
                      ptime _endTraining,
                      ptime _startEvaluation,
-                     ptime _endEvaluation)
+                     ptime _endEvaluation,
+                     EvaluationType _evaluationType)
 {
     std::cout << "Start running" << std::endl;
     EvaluationResults results;
 
-    ptime startCandidates = _startEvaluation - minutes(60*24*5);
+    //ptime startCandidates = _startEvaluation - minutes(60*24*5);
+    ptime startCandidates = _startEvaluation;
 
     double meanMrr = 0;
     double sAt5 = 0;
@@ -142,7 +106,8 @@ EvaluationResults Evaluation::run(LongVectorPtr _userIds,
     double usersAt10;
     for (auto userId : *_userIds)
     {
-        auto con = std::make_shared<pqxx::connection>("postgresql://tweetsbr:zxc123@localhost:5432/tweetsbr2");
+        //auto con = std::make_shared<pqxx::connection>("postgresql://tweetsbr:zxc123@localhost:5432/tweetsbr2");
+        auto con = m_con;
         try
         {
             auto userProfile = UserProfile::getHashtagProfile(con, userId, _startTraining, _endTraining, false);
@@ -153,7 +118,8 @@ EvaluationResults Evaluation::run(LongVectorPtr _userIds,
                 continue;
             }
 
-            userProfile->loadProfile();
+            if(_evaluationType != RECENCY_EVAL)
+                userProfile->loadProfile();
 
             auto candidateTweets = userProfile->getCandidateTweets(startCandidates, _endEvaluation);
             userMeanMrr = 0.0;
@@ -162,7 +128,7 @@ EvaluationResults Evaluation::run(LongVectorPtr _userIds,
 
             for (auto retweet : *retweets)
             {
-                auto ranked = rankCandidatesByDate(candidateTweets, userProfile, retweet.first);
+                auto ranked = rankCandidates(candidateTweets, userProfile, retweet.first);
                 auto found = std::find(ranked->begin(), ranked->end(), retweet.second);
                 double index = (double) std::distance(ranked->begin(), found);
 
