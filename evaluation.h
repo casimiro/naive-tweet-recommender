@@ -12,7 +12,9 @@ using namespace boost::posix_time;
 enum EvaluationType {
     RECENCY_EVAL,
     HASHTAG_EVAL,
-    TOPIC_EVAL
+    BOW_EVAL,
+    TOPIC_EVAL,
+    RANDOM_EVAL
 };
 
 struct Result {
@@ -73,31 +75,39 @@ private:
 class Evaluation
 {
 public:
-    Evaluation(PqConnectionPtr _con);
+    Evaluation(std::string _connectionString, 
+               LongVectorPtr _userIds,
+               ptime _startTraining,
+               ptime _endTraining,
+               ptime _startEvaluation,
+               ptime _endEvaluation,
+               EvaluationType _evaluationType,
+               bool _social);
     virtual ~Evaluation();
 
 private:
-    PqConnectionPtr m_con;
+    std::string m_stringConnection;
     LongVectorPtr m_userIds;
     ptime m_startTraining;
     ptime m_endTraining;
     ptime m_startEvaluation;
     ptime m_endEvaluation;
+    EvaluationType m_evaluationType;
+    bool m_social;
+    
     double m_mrr = 0.0;
     double m_successAtK = 0.0;
     
     std::map<int, double> m_bestTimeframe;
 
     virtual LongVectorPtr rankCandidates(TweetProfileVectorPtr _candidates, UserProfilePtr _userProfile, ptime _until);
-    virtual LongVectorPtr rankCandidatesByDate(TweetProfileVectorPtr _candidates, UserProfilePtr _userProfile, ptime _until);
+    virtual LongVectorPtr rankCandidatesByDate(TweetProfileVectorPtr _candidates, ptime _until);
+    virtual LongVectorPtr rankCandidatesRandomly(TweetProfileVectorPtr _candidates, ptime _until);
+    
+    virtual UserProfilePtr getUserProfile(long int _userId, PqConnectionPtr _con);
 
 public:
-    virtual EvaluationResults run(LongVectorPtr _userIds,
-                     ptime _startTraining,
-                     ptime _endTraining,
-                     ptime _startEvaluation,
-                     ptime _endEvaluation,
-                     EvaluationType _evaluationType);
+    virtual EvaluationResults run();
 };
 
 }

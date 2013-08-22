@@ -11,11 +11,13 @@ using namespace boost::posix_time;
 
 class ProfileTestCase : public ::testing::Test {
 protected:
+    std::string m_stringConnection;
     PqConnectionPtr m_con;
 
     ProfileTestCase()
     {
-        m_con = std::make_shared<pqxx::connection>("postgresql://tweetsbr:zxc123@localhost:5432/tweetsbrtest");
+        m_stringConnection = "postgresql://tweetsbr:zxc123@localhost:5432/tweetsbrtest";
+        m_con = std::make_shared<pqxx::connection>(m_stringConnection);
         pqxx::work t(*m_con);
 
         t.exec("DROP TABLE IF EXISTS tweet");
@@ -45,15 +47,15 @@ protected:
         t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (10, 3, '2012-01-01 09:05:00', null, 'inflacao alta #economia')");
 
         /** test data **/
-        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (11, 2, '2012-01-02 09:00:00', null, 'trabalho #unicamp')");
-        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (12, 2, '2012-01-02 09:00:00', null, 'trabalho #som')");
-        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (13, 2, '2012-01-02 09:05:00', null, 'trabalhando #apple')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (11, 2, '2012-01-07 09:00:00', null, 'trabalho #unicamp')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (12, 2, '2012-01-07 09:00:00', null, 'trabalho #som')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (13, 2, '2012-01-07 09:05:00', null, 'trabalhando #apple')");
 
-        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (14, 3, '2012-01-02 09:10:00', null, '#economia em baixa')");
-        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (15, 4, '2012-01-02 09:15:00', null, 'corinthians ganha do #palmeiras')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (14, 3, '2012-01-07 09:10:00', null, '#economia em baixa')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (15, 4, '2012-01-07 09:15:00', null, 'corinthians ganha do #palmeiras')");
 
-        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (16, 1, '2012-01-02 09:07:00', 11, 'trabalho #unicamp')");
-        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (17, 1, '2012-01-02 09:20:00', 14, '#economia em baixa')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (16, 1, '2012-01-07 09:07:00', 11, 'trabalho #unicamp')");
+        t.exec("INSERT INTO tweet (id, user_id, creation_time, retweeted, content) VALUES (17, 1, '2012-01-07 09:20:00', 14, '#economia em baixa')");
 
         t.exec("DROP TABLE IF EXISTS relationship");
         t.exec(
@@ -120,8 +122,8 @@ TEST_F(ProfileTestCase, UserProfileSocialLoading)
 
 TEST_F(ProfileTestCase, GetCandidateTweets)
 {
-    ptime start = time_from_string("2012-01-02 09:00:00");
-    ptime end = time_from_string("2012-01-02 10:00:00");
+    ptime start = time_from_string("2012-01-07 09:00:00");
+    ptime end = time_from_string("2012-01-07 10:00:00");
 
     UserProfilePtr up = UserProfile::getHashtagProfile(m_con, 1, start, end, false);
     up->loadProfile();
@@ -155,14 +157,16 @@ TEST_F(ProfileTestCase, EvaluationRun)
 {
     auto users = std::make_shared<LongVector>();
     users->push_back(1);
-    Evaluation eval(m_con);
+    Evaluation eval(m_stringConnection, 
+                    users,
+                    time_from_string("2012-01-01 00:00:00"),
+                    time_from_string("2012-01-01 11:59:59"),
+                    time_from_string("2012-01-07 00:00:00"),
+                    time_from_string("2012-01-07 11:59:59"),
+                    HASHTAG_EVAL,
+                    false);
 
-    EvaluationResults result = eval.run(users,
-                                       time_from_string("2012-01-01 00:00:00"),
-                                       time_from_string("2012-01-01 11:59:59"),
-                                       time_from_string("2012-01-02 00:00:00"),
-                                       time_from_string("2012-01-02 11:59:59"),
-                                       HASHTAG_EVAL);
+    EvaluationResults result = eval.run();
 
     ASSERT_NEAR(0.625, result.generalResult().mrr, 0.001);
     ASSERT_NEAR(0.625, result.resultMap()[1].mrr, 0.001);

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <sstream>
 #include "dateutils.h"
+#include <boost/algorithm/string.hpp>
 
 namespace casimiro {
     
@@ -65,15 +66,51 @@ void UserProfile::buildConceptMap(pqxx::result &_rows, std::string _pattern)
         it->second = it->second / sum;
 }
 
+void UserProfile::buildTopicsConceptMap(pqxx::result _rows)
+{
+    float sum = 0;
+    float val = 0;
+    
+    std::vector<std::string> pairs;
+    std::vector<std::string> vals;
+    
+    for(auto row : _rows)
+    {
+        pairs.clear();
+        std::string line = row["topics"].c_str();
+        boost::split(pairs, line, boost::is_any_of(" "));
+        for (auto pair : pairs)
+        {
+            vals.clear();
+            boost::split(vals, pair, boost::is_any_of(":"));
+            
+            val = atof(vals.at(1).c_str());
+            (*m_profile)[vals.at(0)] += val;
+            sum += val;
+        }
+    }
+    
+    for(auto it = m_profile->begin(); it != m_profile->end(); it++)
+        it->second = it->second / sum;
+}
+
 void UserProfile::loadProfile()
 {
     pqxx::nontransaction t(*m_con);
     pqxx::result rows = t.exec(m_sqlQuery);
 
-    if(m_profileType == BAG_OF_WORDS)
-        buildConceptMap(rows, "\\w{3,}");
-    else if(m_profileType == HASHTAG)
-        buildConceptMap(rows, "#\\w+");
+    switch(m_profileType)
+    {
+        case BAG_OF_WORDS:
+            buildConceptMap(rows, "\\w{3,}");
+            break;
+        case HASHTAG:
+            buildConceptMap(rows, "#\\w+");
+            break;
+        case TOPICS:
+            buildTopicsConceptMap(rows);
+    }
+    
 
     t.commit();
 }
@@ -113,6 +150,25 @@ UserProfilePtr UserProfile::getHashtagProfile(PqConnectionPtr _con, long _userId
     UserProfilePtr up = std::make_shared<UserProfile>(_con, _userId, std::make_shared<ConceptMap>(), _start, _end, HASHTAG, query);
     return up;
 }
+
+UserProfilePtr UserProfile::getTopicsProfile(PqConnectionPtr _con, long _userId, ptime _start, ptime _end, bool _social)
+{
+    std::stringstream ss;
+    ss << _userId;
+    std::string sUserId = ss.str();
+
+    std::string query = "SELECT topics, user_id FROM tweet WHERE user_id = "+sUserId+" "
+            "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"' AND content LIKE '%#%'";
+    if(_social)
+    {
+        query = "SELECT topics, user_id FROM tweet WHERE user_id in ((SELECT followed_id FROM relationship WHERE follower_id="+sUserId+") UNION (SELECT GREATEST(0,"+sUserId+"))) "
+                "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"' AND content LIKE '%#%'";
+    }
+
+    UserProfilePtr up = std::make_shared<UserProfile>(_con, _userId, std::make_shared<ConceptMap>(), _start, _end, TOPICS, query);
+    return up;
+}
+
 
 double UserProfile::cosineSimilarity(ConceptMapPtr _profile)
 {

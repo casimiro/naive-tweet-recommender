@@ -40,6 +40,7 @@ private:
     std::string m_sqlQuery;
     
     virtual void buildConceptMap(pqxx::result &_rows, std::string _pattern);
+    virtual void buildTopicsConceptMap(pqxx::result _rows);
 
 public:
     virtual TweetProfileVectorPtr getCandidateTweets(const ptime &_start, const ptime &_end);
@@ -56,6 +57,7 @@ public:
     
     static UserProfilePtr getHashtagProfile(PqConnectionPtr _con, long _userId, ptime _start, ptime _end, bool _social);
     static UserProfilePtr getBagOfWordsProfile(PqConnectionPtr _con, long _userId, ptime _start, ptime _end, bool _social);
+    static UserProfilePtr getTopicsProfile(PqConnectionPtr _con, long _userId, ptime _start, ptime _end, bool _social);
 };
 
 }
