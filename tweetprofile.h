@@ -27,6 +27,7 @@ private:
     ConceptMapPtr m_profile;
 
     static TweetProfilePtr buildProfile(long _id, ptime _publishDate, std::string _tweetContent, std::string _pattern);
+    static TweetProfilePtr buildTopicProfile(long int _id, ptime _publishDate, std::string _topics);
 
 public:
     virtual ConceptMapPtr getProfile() { return m_profile; }
@@ -35,6 +36,7 @@ public:
 
     static TweetProfilePtr getBagOfWordsProfile(long _id, ptime _publishDate, std::string _tweetContent);
     static TweetProfilePtr getHashtagProfile(long _id, ptime _publishDate, std::string _tweetContent);
+    static TweetProfilePtr getTopicProfile(long _id, ptime _publishDate, std::string _topics);
 };
 
 }

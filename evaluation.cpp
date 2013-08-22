@@ -121,6 +121,8 @@ UserProfilePtr Evaluation::getUserProfile(long int _userId, PqConnectionPtr _con
         case RANDOM_EVAL:
             // Just return the simplest profile
             return UserProfile::getBagOfWordsProfile(_con, _userId, m_startTraining, m_endTraining, m_social);
+        default:
+            return nullptr;
     }
 }
 

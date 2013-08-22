@@ -31,7 +31,7 @@ int main(int /*argc*/, char** /*argv*/) {
                           endTraining, 
                           startTest, 
                           endTest, 
-                          HASHTAG_EVAL, 
+                          TOPIC_EVAL, 
                           false);
 
     evaluation.run();
