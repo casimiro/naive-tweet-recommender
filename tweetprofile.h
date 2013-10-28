@@ -37,6 +37,11 @@ public:
     static TweetProfilePtr getBagOfWordsProfile(long _id, ptime _publishDate, std::string _tweetContent);
     static TweetProfilePtr getHashtagProfile(long _id, ptime _publishDate, std::string _tweetContent);
     static TweetProfilePtr getTopicProfile(long _id, ptime _publishDate, std::string _topics);
+
+    bool operator < (const TweetProfile& _tweetProfile) const
+    {
+        return (m_publishDateTime < _tweetProfile.m_publishDateTime);
+    }
 };
 
 }

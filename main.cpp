@@ -13,10 +13,10 @@ using namespace boost::posix_time;
 
 int main(int /*argc*/, char** /*argv*/) {
 
-    ptime startTraining = time_from_string("2001-01-01 00:00:00");
-    ptime endTraining = time_from_string("2013-04-01 00:00:00");
-    ptime startTest = time_from_string("2013-04-01 00:00:01");
-    ptime endTest = time_from_string("2013-05-01 00:00:00");
+    ptime startTraining = time_from_string("2013-01-01 00:00:00");
+    ptime endTraining = time_from_string("2013-05-01 00:00:00");
+    ptime startTest = time_from_string("2013-05-01 00:00:01");
+    ptime endTest = time_from_string("2013-08-01 00:00:00");
     
     LongVector userIds;
 
@@ -25,13 +25,13 @@ int main(int /*argc*/, char** /*argv*/) {
     while(std::getline(users, line))
         userIds.push_back(atol(line.c_str()));
 
-    Evaluation evaluation("postgresql://tweetsbr:zxc123@localhost:5432/tweetsbr2", 
+    Evaluation evaluation("postgresql://tweets:zxc123@192.168.25.33:5432/tweets", 
                           std::make_shared<LongVector>(userIds), 
                           startTraining, 
                           endTraining, 
                           startTest, 
                           endTest, 
-                          TOPIC_EVAL, 
+                          RANDOM_EVAL,
                           false);
 
     evaluation.run();

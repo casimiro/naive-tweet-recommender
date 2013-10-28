@@ -85,8 +85,18 @@ void UserProfile::buildTopicsConceptMap(pqxx::result _rows)
             colonPos = pair.find(":");
             topic = pair.substr(0, colonPos).c_str();
             val = atof(pair.substr(colonPos+1, pair.size() - colonPos).c_str());
-            (*m_profile)[topic] += val;
-            sum += val;
+
+            if(row["user_id"].as<long>() == m_userId)
+            {
+                (*m_profile)[topic] += 2*val;
+                sum += 2*val;
+            }
+            else
+            {
+                (*m_profile)[topic] += val;
+                sum += val;
+            }
+
         }
     }
     
@@ -158,11 +168,11 @@ UserProfilePtr UserProfile::getTopicsProfile(PqConnectionPtr _con, long _userId,
     std::string sUserId = ss.str();
 
     std::string query = "SELECT topics, user_id FROM tweet_topics WHERE user_id = "+sUserId+" "
-            "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"'";
+            "AND topics != '' AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"'";
     if(_social)
     {
         query = "SELECT topics, user_id FROM tweet_topics WHERE user_id in ((SELECT followed_id FROM relationship WHERE follower_id="+sUserId+") UNION (SELECT GREATEST(0,"+sUserId+"))) "
-                "AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"'";
+                "AND topics != '' AND creation_time >= '"+to_iso_extended_string(_start)+"' AND creation_time <= '"+to_iso_extended_string(_end)+"'";
     }
 
     UserProfilePtr up = std::make_shared<UserProfile>(_con, _userId, std::make_shared<ConceptMap>(), _start, _end, TOPICS, query);
@@ -208,6 +218,13 @@ double UserProfile::cosineSimilarity(ConceptMapPtr _profile)
     return dot / (aNorm * bNorm);
 }
 
+struct {
+    bool operator()(TweetProfilePtr a, TweetProfilePtr b)
+    {
+        return a->getTweetId() < b->getTweetId();
+    }
+} TweetProfileLess;
+
 TweetProfileVectorPtr UserProfile::getCandidateTweets(const ptime &_start, const ptime &_end)
 {
     pqxx::nontransaction t(*m_con);
@@ -225,7 +242,7 @@ TweetProfileVectorPtr UserProfile::getCandidateTweets(const ptime &_start, const
         {
             pqxx::result rows = t.exec("SELECT id, content, creation_time FROM tweet,relationship "
                 "WHERE user_id = followed_id AND follower_id = "+sUserId+" "
-                "AND creation_time >= '"+start+"' AND creation_time <= '"+end+"' AND content LIKE '%#%' ORDER BY creation_time ASC");
+                "AND creation_time >= '"+start+"' AND creation_time <= '"+end+"' AND content LIKE '%#%'");
             
             for(auto row : rows)
             {
@@ -238,9 +255,9 @@ TweetProfileVectorPtr UserProfile::getCandidateTweets(const ptime &_start, const
         }
         case BAG_OF_WORDS:
         {
-            pqxx::result rows = t.exec("SELECT id, content, creation_time FROM tweet,relationship "
-                "WHERE user_id = followed_id AND follower_id = "+sUserId+" "
-                "AND creation_time >= '"+start+"' AND creation_time <= '"+end+"' ORDER BY creation_time ASC");
+            pqxx::result rows = t.exec("SELECT id, content, creation_time FROM tweet "
+                "WHERE user_id IN (select followed_id FROM relationship WHERE follower_id = "+sUserId+") "
+                "AND creation_time >= '"+start+"' AND creation_time <= '"+end+"'");
             for(auto row : rows)
             {
                 long tweetId = row["id"].as<long>();
@@ -252,9 +269,9 @@ TweetProfileVectorPtr UserProfile::getCandidateTweets(const ptime &_start, const
         }
         case TOPICS:
         {
-            pqxx::result rows = t.exec("SELECT id, topics, creation_time FROM tweet_topics,relationship "
-                "WHERE user_id = followed_id AND follower_id = "+sUserId+" "
-                "AND creation_time >= '"+start+"' AND creation_time <= '"+end+"' ORDER BY creation_time ASC");
+            pqxx::result rows = t.exec("SELECT id, topics, creation_time FROM tweet_topics "
+                "WHERE topics != '' AND user_id IN (select followed_id FROM relationship WHERE follower_id = "+sUserId+") "
+                "AND creation_time >= '"+start+"' AND creation_time <= '"+end+"'");
             for(auto row : rows)
             {
                 long tweetId = row["id"].as<long>();
@@ -265,8 +282,9 @@ TweetProfileVectorPtr UserProfile::getCandidateTweets(const ptime &_start, const
             break;
         }
     }
-    
     t.commit();
+
+    std::sort(tweetProfiles.begin(), tweetProfiles.end(), TweetProfileLess);
     return std::make_shared<TweetProfileVector>(tweetProfiles);
 }
 
@@ -296,7 +314,7 @@ RetweetVectorPtr UserProfile::getRetweets(const ptime &_start, const ptime &_end
         case TOPICS:
             m_con->prepare("gr",
                 "SELECT creation_time, retweeted FROM tweet_topics WHERE user_id = $1 "
-                "AND retweeted IS NOT NULL AND creation_time >= $2 AND creation_time <= $3 "
+                "AND retweeted IS NOT NULL AND retweeted != 0 AND creation_time >= $2 AND creation_time <= $3 "
                 "ORDER BY creation_time ASC"
             );
             break;
