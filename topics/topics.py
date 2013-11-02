@@ -8,6 +8,9 @@ import gensim
 from gensim import corpora
 from gensim.models.ldamodel import LdaModel
 
+import numpy as np
+from scipy.optimize import fmin_tnc
+
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 class TweetCorpus(object):
@@ -28,7 +31,52 @@ class Tweets(object):
     def __iter__(self):
         for line in open(self.file_name):
             yield line.split()[5:]
+
+
+def topic_likelihood(t,*args):
+    # t is the user topic preference, subject to optimization
+    # Dt is the topic distribution of the retweets of the user
+    # the 't' of Dt means that it's the transposed form of D
+    r = np.dot(t,args[0])
+    return -np.sum(r)
+    
+def estimate_user_topic(con, user_id):
+    cur = con.cursor()
+    cur.execute("SELECT tweet_id,topic,topic_value FROM tweet, tweet_topic WHERE retweeted IS NOT NULL AND tweet_id = id AND user_id = %s ORDER BY tweet_id" % user_id)
+    rows = cur.fetchall()
+    if len(rows) == 0:
+        return None
+    
+    D = []
+    d_row = np.zeros(100)
+    current_tweet = rows[0][0]
+    for row in rows:
+        if row[0] != current_tweet:
+            D.append(d_row)
+            d_row = np.zeros(100)
+            current_tweet = row[0]
+        d_row[row[1]] = row[2]
+    
+    t = np.random.random_sample(100)
+    bounds = [(0,1) for i in xrange(100)]
+    a = fmin_tnc(func=topic_likelihood, x0=t, fprime=None, args=(D), approx_grad=True, bounds=bounds, disp=0)
+    
+    t = a[0]
+    return t / sum(t)
+
+def persist_users_topic_preferences(con, users):
+    cur = con.cursor()
+    for user in users:
+        topics = estimate_user_topic(con, user)
+        if topics is None:
+            print "User %s has no retweet\n" % user
+            continue
+        print "Persisting topic preferences of user %s \n" % user
+        for i in xrange(len(topics)):
+            cur.execute("INSERT INTO user_topic VALUES (%s,%s,%s)" % (user, i, topics[i]))
+    con.commit()
             
+
 def save_tweets_topics(lda, dictionary, con, file_name):
     cur = con.cursor()
         
@@ -90,13 +138,18 @@ def estimate_lda():
 
 if __name__ == '__main__':
     
+    con = psycopg2.connect("host=192.168.25.33 dbname='tweets' user='tweets' password='zxc123'")
     if sys.argv[1] == 'topics':
-        con = psycopg2.connect("host=192.168.25.33 dbname='tweets' user='tweets' password='zxc123'")
-        
         id2word = gensim.corpora.Dictionary.load('small.dict')
         lda = LdaModel.load('small.lda')
-        
         save_tweets_topics(lda, id2word, con, sys.argv[2])
+    elif sys.argv[1] == 'usertopics':
+        
+        users = []
+        for line in open(sys.argv[2]):
+            users.append(int(line.strip()))
+        persist_users_topic_preferences(con,users)
+        
     elif sys.argv[1] == 'infra':
         create_infra(sys.argv[2])
         
