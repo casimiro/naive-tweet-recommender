@@ -1,13 +1,42 @@
+import psycopg2
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 from scipy.sparse import lil_matrix, csr_matrix
+from scipy.io import mmwrite, mmread
+from datetime import timedelta
+from collections import defaultdict
+
+def ndcg(ranking, relevant_items):
+    ndcg = 0.0
+    perfect_dcg = 0.0
+    for i in range(len(ranking)):
+        power = 1 if ranking[i] in relevant_items else 0
+        ndcg += (pow(2.0, power) - 1) / np.log2(1 + i)
+        
+        #perfect ndcg
+        power = 1 if i < len(relevant_items) else 0
+        perfect_dcg += (pow(2.0, power) - 1) / np.log2(1 + i)
+    return ndcg / perfect_dcg
+
+def mean_average_precision(ranking, relevant_items):
+    _map = 0.0
+    precision = 0
+    for i in range(len(ranking)):
+        if ranking[i] in relevant_items:
+            precision += 1
+        relevant = 1 if ranking[i] in relevant_items else 0
+        _map += precision * relevant
+        
+    return _map / len(relevant_items)
 
 class YanRecommender(object):
 
     def __init__(self, con):
         self.con = con
         self._load_matrix_U()
+        self._sigma = 0.15
+        self._lambda = 0.6
 
     def _load_candidates(self, start, end):
         cur = self.con.cursor()
@@ -20,12 +49,18 @@ class YanRecommender(object):
         rows = cur.fetchall()
 
         self._candidate_ids = {} # map the tweet position in matrices given tweet id
+        self._inv_candidate_ids = {} # map the tweet position in matrices given tweet id
         self._D = []
         d_row = np.zeros(100)
+        
+        print "%s %s %s" % (self.user_id, start, end)
+        
+        
         current_tweet_id = rows[0][0]
         for row in rows:
             if row[0] != current_tweet_id:
                 self._candidate_ids[current_tweet_id] = len(self._D)
+                self._inv_candidate_ids[len(self._D)] = current_tweet_id
                 self._D.append(d_row)
                 d_row = np.zeros(100)
                 current_tweet_id = row[0]
@@ -91,7 +126,7 @@ class YanRecommender(object):
         cur.execute(""" SELECT topic, topic_value FROM user_topic WHERE user_id = %s  """ % user_id)
         rows = cur.fetchall()
         self._t = np.zeros(100)
-        self._u = np.zeros(len(self._user_ids.keys()))
+        self._p = np.zeros(len(self._user_ids.keys()))
         
         cur.execute(""" SELECT tweets_count FROM twitter_user WHERE id = %s """ % user_id)
         row = cur.fetchone()
@@ -109,7 +144,7 @@ class YanRecommender(object):
         
         for row in rows:
             user_pos = self._user_ids[row[0]]
-            self._u[user_pos] = float(row[1]) / tweets_count
+            self._p[user_pos] = float(row[1]) / tweets_count
         
 
 
@@ -124,31 +159,69 @@ class YanRecommender(object):
         #   Build U matrix
         #   Build UM matrix
         #   Build MU matrix
+        self._load_candidates(start, end)
+        
         self._m = np.tile(1.0 / len(self._candidate_ids.keys()), len(self._candidate_ids.keys()))
         self._u = np.tile(1.0 / len(self._user_ids.keys()), len(self._user_ids.keys()))
         
-        # updating M
-        self._M = (1 - self._sigma) * ( self._M * self._m )  + ( self._sigma * self._r )
+        diag_r = csr_matrix( (self._r, (np.arange(len(self._r)), np.arange(len(self._r)))), shape=(len(self._r),len(self._r)), dtype=np.dtype(float))
+        diag_p = csr_matrix( (self._u, (np.arange(len(self._u)), np.arange(len(self._u)))), shape=(len(self._u),len(self._u)), dtype=np.dtype(float))
         
-        aux_m = (1 - self._lambda) * ( np.dot( np.dot( np.diag(self._r), self._M ).transpose(), self._m) ) + self._lambda * ( self._UM.transpose().dot(self._u) )
-        normalize(aux_m)
+        diff = 1
+        while diff > 0.001:
+            # updating M
+            self._M = (1 - self._sigma) * ( self._M * self._m )  + ( self._sigma * self._r )
+            
+            aux_m = (1 - self._lambda) * ( diag_r.dot( self._M ).transpose().dot(self._m) ) + self._lambda * ( self._UM.transpose().dot(self._u) )
+            aux_m = aux_m/ np.linalg.norm(aux_m)
+            
+            aux_u = (1 - self._sigma) * ( diag_p.dot( self._U ).transpose().dot(self._u) ) + self._sigma * ( self._MU.transpose().dot(self._m) )
+            aux_u = aux_u / np.linalg.norm(aux_u)
+            
+            diff_m = np.absolute(self._m - aux_m)
+            diff_u = np.absolute(self._u - aux_u)
+            
+            diff = min(np.min(diff_m), np.min(diff_u))
+            
+            self._m = aux_m
+            self._u = aux_u
         
-        aux_u = (1 - self._sigma) * ( np.dot( np.dot( np.diag(self._p), self._U).transpose(), self._u) ) + self._sigma * ( self._MU.transpose().dot(self._m) )
-        normalize(aux_u)
+        top50 = self._m.argsort()[-50:][::-1]
+        return [ self._inv_candidate_ids[x] for x in top50 ]
+    
+    def evaluate(self, start):
+        dates_retweets = defaultdict(set)
         
-        diff = 
+        cur = self.con.cursor()
+        cur.execute("""
+            SELECT date(creation_time), retweeted FROM tweet WHERE creation_time > '%s' AND user_id = %s AND retweeted IS NOT NULL 
+            """ % (start, self.user_id))
+        rows = cur.fetchall()
+        for row in rows:
+            dates_retweets[row[0]].add(row[1])
         
-        
-        
-        
+        one_day = timedelta(days=1)
+        ndcg = 0.0
+        _map = 0.0
+        for date in dates_retweets.keys():
+            recommendations = self.produce_recommendations(date, date + one_day)
+            ndcg += ndcg(recommendations, dates_retweets[date])
+            _map += mean_average_precision(recommendations, dates_retweets[date])
+        ndcg = ndcg / len(dates_retweets.keys())
+        _map = _map / len(dates_retweets.keys())
+        return (ndcg,_map)
+            
 
 
-yan = YanRecommender(con)
-yan.set_user(580337754)
-yan._load_matrix_U()
-yan._load_candidates('2013-05-05','2013-05-06')
-
-
-yan._m = np.tile(1.0 / len(yan._candidate_ids.keys()), len(yan._candidate_ids.keys()))
-yan._u = np.tile(1.0 / len(yan._user_ids.keys()), len(yan._user_ids.keys()))
-aux = (1 - yan._lambda) * ( np.dot( np.dot( np.diag(yan._r), yan._M ).transpose(), yan._m) ) + yan._lambda * ( yan._UM.transpose().dot(yan._u) )
+if __name__ == '__main__':
+    con = psycopg2.connect("host=192.168.25.33 dbname='tweets' user='tweets' password='zxc123'")
+    yan = YanRecommender(con)
+    ndcg = 0.0
+    _map = 0.0
+    for user_id in open("user_ids"):
+        yan.set_user(int(user_id))
+        results = yan.evaluate('2013-05-01')
+        print "%s   %s  %s" % (user_id, results[0], results[1])
+        ndcg += results[0]
+        _map += results[1]
+    print "Final result: nDCG: %s     MAP: %s" % (ndcg, _map)
