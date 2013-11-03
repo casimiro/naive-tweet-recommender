@@ -12,11 +12,11 @@ def ndcg(ranking, relevant_items):
     perfect_dcg = 0.0
     for i in range(len(ranking)):
         power = 1 if ranking[i] in relevant_items else 0
-        ndcg += (pow(2.0, power) - 1) / np.log2(1 + i)
+        ndcg += (pow(2.0, power) - 1) / np.log2(2 + i)
         
         #perfect ndcg
         power = 1 if i < len(relevant_items) else 0
-        perfect_dcg += (pow(2.0, power) - 1) / np.log2(1 + i)
+        perfect_dcg += (pow(2.0, power) - 1) / np.log2(2 + i)
     return ndcg / perfect_dcg
 
 def mean_average_precision(ranking, relevant_items):
@@ -53,9 +53,6 @@ class YanRecommender(object):
         self._D = []
         d_row = np.zeros(100)
         
-        print "%s %s %s" % (self.user_id, start, end)
-        
-        
         current_tweet_id = rows[0][0]
         for row in rows:
             if row[0] != current_tweet_id:
@@ -67,6 +64,7 @@ class YanRecommender(object):
             d_row[row[1]] = row[2]
         
         self._candidate_ids[current_tweet_id] = len(self._D)
+        self._inv_candidate_ids[len(self._D)] = current_tweet_id
         self._D.append(d_row)
 
         self._M = cosine_similarity(self._D, self._D)
@@ -201,27 +199,27 @@ class YanRecommender(object):
             dates_retweets[row[0]].add(row[1])
         
         one_day = timedelta(days=1)
-        ndcg = 0.0
-        _map = 0.0
+        all_ndcg = 0.0
+        all_map = 0.0
         for date in dates_retweets.keys():
             recommendations = self.produce_recommendations(date, date + one_day)
-            ndcg += ndcg(recommendations, dates_retweets[date])
-            _map += mean_average_precision(recommendations, dates_retweets[date])
-        ndcg = ndcg / len(dates_retweets.keys())
-        _map = _map / len(dates_retweets.keys())
-        return (ndcg,_map)
+            all_ndcg += ndcg(recommendations, dates_retweets[date])
+            all_map += mean_average_precision(recommendations, dates_retweets[date])
+        all_ndcg = all_ndcg / len(dates_retweets.keys())
+        all_map = all_map / len(dates_retweets.keys())
+        return (all_ndcg,all_map)
             
 
 
 if __name__ == '__main__':
     con = psycopg2.connect("host=192.168.25.33 dbname='tweets' user='tweets' password='zxc123'")
     yan = YanRecommender(con)
-    ndcg = 0.0
-    _map = 0.0
-    for user_id in open("user_ids"):
+    all_ndcg = 0.0
+    all_map = 0.0
+    for user_id in open("users_good"):
         yan.set_user(int(user_id))
         results = yan.evaluate('2013-05-01')
         print "%s   %s  %s" % (user_id, results[0], results[1])
-        ndcg += results[0]
-        _map += results[1]
-    print "Final result: nDCG: %s     MAP: %s" % (ndcg, _map)
+        all_ndcg += results[0]
+        all_map += results[1]
+    print "Final result: nDCG: %s     MAP: %s" % (all_ndcg, all_map)
